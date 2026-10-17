@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile enxuto, multi-stage, esqueleto agnóstico de linguagem e de gatilho.
+#
+# Como usar (docker/README.md):
+#   cp docker/Dockerfile.example Dockerfile
+#   e troque cada TODO(bootstrap) pelos equivalentes da stack em STACK.md.
+#
+# Regras:
+#   - Imagem final mínima: sem compilador, sem dependência de desenvolvimento.
+#   - Roda como usuário não-root.
+#   - Configuração em RUNTIME (variáveis do GitHub Environment): a mesma
+#     imagem vai de dev a prod.
+#   - Mesmo worker de fila/cron expõe /health e /ready numa porta auxiliar
+#     (docs/observability.md), para o orquestrador saber se está vivo.
+#   - Trate SIGTERM: termine a mensagem em andamento e saia (sem perder
+#     trabalho no deploy).
+
+##############################
+# Stage 1: build
+##############################
+# TODO(bootstrap): ex.: golang:1.24-alpine | node:22-alpine | python:3.13-slim
+FROM TODO-imagem-de-build AS build
+
+WORKDIR /app
+
+# Manifestos primeiro, para o cache reaproveitar a instalação.
+# TODO(bootstrap): ex.: COPY go.mod go.sum ./  |  COPY package.json package-lock.json ./
+COPY TODO-manifestos ./
+# TODO(bootstrap): ex.: go mod download  |  npm ci  |  uv sync --frozen --no-dev
+RUN TODO-instalar-dependencias
+
+COPY . .
+# TODO(bootstrap): ex.: CGO_ENABLED=0 go build -o /out/worker ./cmd/worker  |  npm run build
+RUN TODO-build
+
+##############################
+# Stage 2: runtime
+##############################
+# TODO(bootstrap): a menor imagem possível. Ex.:
+#   Go (binário estático) -> gcr.io/distroless/static-debian12:nonroot
+#   Node                  -> node:22-alpine
+#   Python                -> python:3.13-slim
+FROM TODO-imagem-de-runtime AS runtime
+
+WORKDIR /app
+
+# TODO(bootstrap): copie só o artefato. Ex.: COPY --from=build /out/worker /app/worker
+COPY --from=build /app/TODO-artefato ./
+
+USER 10001
+
+# Porta do health check auxiliar (docs/observability.md).
+EXPOSE 8080
+
+# TODO(bootstrap): comando de start. Ex.: ["/app/worker"]  |  ["node", "dist/main.js"]
+CMD ["TODO-comando-de-start"]

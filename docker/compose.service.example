@@ -1,0 +1,28 @@
+# Entrada deste serviço para o compose de desenvolvimento do PROJETO.
+#
+# Um microservice raramente roda sozinho: ele precisa da fila, do banco ou do
+# backend que já sobem no compose de outro repositório. Por isso esta entrada
+# é para COLAR no compose.yaml do projeto (ou incluir com `include:`), e não
+# para ser um compose completo aqui.
+#
+# Rodar só este serviço, isolado:
+#   docker build -t service:local . && docker run --rm --env-file .env -p 8080:8080 service:local
+
+services:
+  # TODO(bootstrap): nome real do serviço
+  service-name:
+    build:
+      context: ../SEU-REPOSITORIO   # caminho deste repositório visto do compose do projeto
+    env_file:
+      - ../SEU-REPOSITORIO/.env
+    environment:
+      OTEL_SERVICE_NAME: service-name
+    ports:
+      # Health check auxiliar. Remova se não precisar acessar do host.
+      - "8080:8080"
+    # Use os serviços que JÁ existem no compose do projeto, não os duplique.
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+    #   queue:
+    #     condition: service_started

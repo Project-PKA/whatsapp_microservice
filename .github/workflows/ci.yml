@@ -1,0 +1,69 @@
+# =============================================================================
+# CI — roda em todo PR e em todo push para main.
+#
+# Este workflow e o portao de merge: ele FALHA e bloqueia. O feedback humano
+# (comentarios, labels) fica em github-agent.yml, que nunca bloqueia.
+#
+# A logica mora em IgorOCosta/workflows (workflows reutilizaveis @v1). Aqui so fica o
+# que e deste servico — quais etapas ligar.
+#
+# AGNOSTICO DE STACK E DE GATILHO: tudo passa pelo contrato do `Makefile`,
+# cujos comandos reais vivem em `project.mk`.
+#
+# Marque `ci-success` como o UNICO required status check na branch protection.
+# =============================================================================
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    if: github.event_name == 'pull_request'
+    uses: IgorOCosta/workflows/.github/workflows/conventions.yml@v1
+
+  # Formato, lint, tipos, testes com cobertura, build, imagem Docker e
+  # SonarCloud — tudo via `make`.
+  pipeline:
+    uses: IgorOCosta/workflows/.github/workflows/ci-make.yml@v1
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      docker: true
+      # Servico que EXPOE HTTP a outros: descomente (e acrescente OPENAPI_CMD
+      # a REQUIRED_VARS no Makefile). O CI passa a falhar se o contrato
+      # commitado divergir do codigo.
+      # contract-path: docs/api/openapi.yaml
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  ci-success:
+    name: ci-success
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [conventions, pipeline]
+    steps:
+      - name: Falha se qualquer job obrigatorio nao passou
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Resultados: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::Um job obrigatorio terminou como '$result'."; exit 1 ;;
+            esac
+          done
+          echo "Todos os jobs obrigatorios passaram."

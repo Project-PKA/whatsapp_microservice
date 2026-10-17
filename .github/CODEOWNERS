@@ -1,0 +1,31 @@
+# =============================================================================
+# CODEOWNERS
+#
+# Owners sao adicionados automaticamente como reviewers dos PRs que tocam
+# seus arquivos. Com "Require review from Code Owners" na branch protection,
+# vira regra de merge (SETUP-GITHUB.md, secao B3).
+#
+# SUBSTITUA os placeholders por times ou usuarios reais (@org/time ou @usuario).
+# Vale a ULTIMA regra que casa com o arquivo.
+# =============================================================================
+
+*                           @SUA-ORG/time-do-servico
+
+# Infra do repositorio: CI/CD, seguranca e automacao.
+/.github/                   @SUA-ORG/time-plataforma
+/scripts/deploy.sh          @SUA-ORG/time-plataforma
+/docker/                    @SUA-ORG/time-plataforma
+/Dockerfile                 @SUA-ORG/time-plataforma
+/Makefile                   @SUA-ORG/time-plataforma
+/.githooks/                 @SUA-ORG/time-plataforma
+/scripts/conventions.sh     @SUA-ORG/time-plataforma
+/sonar-project.properties   @SUA-ORG/time-plataforma
+
+# Fronteira com o resto do sistema: mudar aqui afeta outros servicos.
+/docs/integration.md        @SUA-ORG/time-do-servico @SUA-ORG/time-backend
+/docs/api/                  @SUA-ORG/time-do-servico @SUA-ORG/time-backend
+
+# Documentacao viva e contrato com agentes de IA.
+/project.mk                 @SUA-ORG/time-do-servico
+/AGENTS.md                  @SUA-ORG/time-do-servico
+/ARCHITECTURE.md            @SUA-ORG/time-do-servico
