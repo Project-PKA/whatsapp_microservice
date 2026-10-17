@@ -1,0 +1,70 @@
+name: CI
+
+# Roda em todo PR. Os passos de install/lint/test são placeholders:
+# devem ser preenchidos na entrevista do BOOTSTRAP.md, de acordo com a
+# stack escolhida (ver Makefile — os alvos `setup`, `lint`, `test` são
+# a fonte da verdade; este workflow só os invoca).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO(bootstrap): configurar o runtime da stack escolhida
+      # (ex: actions/setup-go, actions/setup-node, actions/setup-python)
+      # - uses: actions/setup-TODO@v5
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Lint
+        run: make lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO(bootstrap): configurar o runtime da stack escolhida
+      # - uses: actions/setup-TODO@v5
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Test
+        run: make test
+
+      # TODO(bootstrap): publicar relatório de cobertura como artifact,
+      # para o github-agent.yml comentar o resultado no PR.
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: coverage
+      #     path: TODO-caminho-do-relatorio-de-cobertura
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make build
+
+  # Validação de Conventional Commits e nome de branch roda no
+  # workflow .github/workflows/github-agent.yml, junto com o resto da
+  # automação de GitHub (labels, GitHub Project, comentário no PR).

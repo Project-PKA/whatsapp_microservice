@@ -1,0 +1,32 @@
+# Segredos e ambiente local
+.env
+.env.local
+.env.*.local
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Build e dependências (a stack escolhida no BOOTSTRAP.md deve
+# descomentar/completar o bloco correspondente abaixo)
+
+# --- Node.js ---
+# node_modules/
+# dist/
+# npm-debug.log*
+
+# --- Go ---
+# /bin/
+# *.exe
+
+# --- Python ---
+# __pycache__/
+# *.pyc
+# .venv/
+# venv/
+
+# Logs locais
+*.log

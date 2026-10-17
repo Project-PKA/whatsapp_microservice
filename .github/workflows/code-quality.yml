@@ -1,0 +1,30 @@
+name: Code Quality
+
+# Análise estática via SonarCloud. Requer o secret SONAR_TOKEN
+# configurado no repositório (ver checklist de configuração manual no
+# README.md) e o projeto criado em https://sonarcloud.io.
+#
+# TODO(bootstrap): preencher sonar.projectKey e sonar.organization em
+# sonar-project.properties (ou nos parâmetros abaixo) e, se a stack
+# gerar relatório de cobertura, apontar sonar.*.coverage.reportPaths.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
