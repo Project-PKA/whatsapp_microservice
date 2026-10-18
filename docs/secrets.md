@@ -22,7 +22,7 @@
 | --- | --- | --- | --- |
 | `DATABASE_URL` | secret | Conexão com o Postgres usando a **role própria do bot** | Montada com `BOT_DB_PASSWORD`; **não** reutilize o usuário do Backend |
 | `BOT_DB_PASSWORD` *(proposto)* | secret | Senha da role do bot | O mesmo valor que o Backend usa ao criar a role |
-| `WHATSAPP_SESSION_ENCRYPTION_KEY` *(proposto)* | secret | Descriptografa `whatsapp_sessions.session_data` | **Idêntica à do Backend** |
+| `WHATSAPP_SESSION_ENCRYPTION_KEY` *(a revisar: ADR 0015, a sessão do neonize é persistida pela biblioteca)* | secret | Descriptografa `whatsapp_sessions.session_data` | **Idêntica à do Backend** |
 | `REDIS_URL` *(proposto)* | secret | Fila de abertura e fechamento de leilão, se usar BullMQ | Mesmo Redis do Backend, se compartilharem |
 
 ## 3. Deploy na VPS (depois da VPS existir)
