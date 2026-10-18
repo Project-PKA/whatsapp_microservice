@@ -17,6 +17,7 @@ from pokemon_bot.bid_flow import BidProcessor, GroupDirectory
 from pokemon_bot.config import Settings, load_settings
 from pokemon_bot.db import Database
 from pokemon_bot.logging_setup import configure_logging
+from pokemon_bot.moderation import Moderator
 from pokemon_bot.trigger.health import start_health_server
 from pokemon_bot.trigger.whatsapp.manager import SessionManager
 from pokemon_bot.trigger.whatsapp.neonize_handle import NeonizeHandle
@@ -53,7 +54,11 @@ def build_manager(
 
 
 def run_pass(
-    manager: SessionManager, groups: GroupDirectory, cycle: AuctionCycle, log: logging.Logger
+    manager: SessionManager,
+    groups: GroupDirectory,
+    cycle: AuctionCycle,
+    moderator: Moderator,
+    log: logging.Logger,
 ) -> None:
     """Uma passada por minuto: abre sessões novas e roda o ciclo do leilão de cada loja online."""
     try:
@@ -65,6 +70,7 @@ def run_pass(
             group_id = groups.group_of(store_id)
             if group_id:
                 cycle.tick(store_id, group_id, client)
+                moderator.sweep(store_id, group_id, client)
         except Exception as error:
             log.error(
                 "falha no ciclo do leilão",
@@ -83,12 +89,14 @@ def main() -> None:
     manager: SessionManager | None = None
     groups: GroupDirectory | None = None
     cycle: AuctionCycle | None = None
+    moderator: Moderator | None = None
     if settings.database_url:
         db = Database(settings.database_url)
         groups = GroupDirectory(db)
         manager = build_manager(settings, db, groups, log)
         storage = Path(settings.storage_dir) if settings.storage_dir else None
         cycle = AuctionCycle(db, log, storage_dir=storage)
+        moderator = Moderator(db, log)
 
     server = start_health_server(
         settings.health_port, is_ready=lambda: manager is not None and manager.synced
@@ -96,8 +104,8 @@ def main() -> None:
     log.info("worker iniciado", extra={"context": {"health_port": settings.health_port}})
     try:
         while not stop.is_set():
-            if manager is not None and groups is not None and cycle is not None:
-                run_pass(manager, groups, cycle, log)
+            if manager and groups and cycle and moderator:
+                run_pass(manager, groups, cycle, moderator, log)
             stop.wait(SYNC_INTERVAL_SECONDS)
     finally:
         if manager is not None:

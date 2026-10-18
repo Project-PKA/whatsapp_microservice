@@ -26,6 +26,7 @@ Para ver o sistema inteiro rodando junto: `docker compose up -d --build` em `../
 | [`STACK.md`](STACK.md) | Por que esta stack |
 | [`TESTING.md`](TESTING.md) | Estratégia de testes |
 | [`docs/integration.md`](docs/integration.md) | Tabelas e funções do banco que o bot acessa |
+| [`docs/moderacao.md`](docs/moderacao.md) | Remoção de participante em blacklist (não verificada com conta real) |
 | [`docs/observability.md`](docs/observability.md) | Health, logs e o que nunca logar |
 | [`docs/spike/`](docs/spike/) | Spike do dono com neonize (referência, não é código de produção) |
 

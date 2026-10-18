@@ -116,6 +116,14 @@ class FakeClient:
         self.sent: list[tuple[str, Any]] = []
         self.connected = False
         self.stopped = False
+        self.info: Any = None
+        self.updates: list[tuple[str, list[str], str]] = []
+
+    def get_group_info(self, chat: Any) -> Any:
+        return self.info
+
+    def update_group_participants(self, chat: Any, jids: list[Any], action: Any) -> None:
+        self.updates.append((chat.User, [j.User for j in jids], action.value))
 
     def connect(self) -> None:
         self.connected = True
@@ -238,3 +246,34 @@ def test_stop_depois_de_conectar(n: int) -> None:
     handle.run(Events())
     handle.stop()
     assert clients[0].stopped
+
+
+def test_participantes_do_grupo_e_remocao() -> None:
+    clients: list[FakeClient] = []
+    handle = _handle(clients)
+    handle.run(Events())
+    client = clients[0]
+    client.info = SimpleNamespace(
+        Participants=[
+            SimpleNamespace(
+                JID=jid("219807853060204", "lid"),
+                PhoneNumber=jid("5511987654321"),
+                IsAdmin=False,
+                IsSuperAdmin=False,
+            ),
+            SimpleNamespace(
+                JID=jid("5511911112222"), PhoneNumber=jid(""), IsAdmin=True, IsSuperAdmin=False
+            ),
+            SimpleNamespace(
+                JID=jid("333", "lid"), PhoneNumber=jid(""), IsAdmin=False, IsSuperAdmin=True
+            ),
+        ]
+    )
+    members = handle.group_participants("120363012345678901@g.us")
+    assert [(m.jid, m.phone, m.is_admin) for m in members] == [
+        ("219807853060204@lid", "5511987654321", False),
+        ("5511911112222@s.whatsapp.net", "5511911112222", True),
+        ("333@lid", None, True),
+    ]
+    handle.remove_participant("120363012345678901@g.us", "5511987654321@s.whatsapp.net")
+    assert client.updates == [("120363012345678901", ["5511987654321"], "remove")]

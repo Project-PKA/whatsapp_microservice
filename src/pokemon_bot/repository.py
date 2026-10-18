@@ -77,6 +77,14 @@ def list_stores(conn: Connection) -> list[StoreRow]:
     return [StoreRow(**row) for row in rows]
 
 
+def list_blacklisted_phones(conn: Connection, store_id: UUID) -> set[str]:
+    """Telefones da blacklist da loja (só o telefone: o bot não enxerga o motivo)."""
+    rows = conn.execute(
+        "SELECT phone FROM customers WHERE store_id = %s AND is_blacklisted", (store_id,)
+    ).fetchall()
+    return {row["phone"] for row in rows}
+
+
 def set_whatsapp_status(
     conn: Connection, store_id: UUID, status: str, group_id: str | None = None
 ) -> bool:

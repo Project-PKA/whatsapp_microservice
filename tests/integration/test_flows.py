@@ -16,7 +16,9 @@ from pokemon_bot.auction_cycle import AuctionCycle, InMemoryLedger
 from pokemon_bot.bid_flow import BidProcessor, GroupDirectory
 from pokemon_bot.db import Database
 from pokemon_bot.events import IncomingMessage
+from pokemon_bot.moderation import Moderator
 from pokemon_bot.participant import Address
+from pokemon_bot.trigger.whatsapp.ports import GroupMember
 
 from .conftest import Seed, Seeder
 
@@ -35,6 +37,9 @@ class FakeClient:
         self.texts: list[tuple[str, str]] = []
         self.images: list[tuple[str, str, str]] = []
         self.fail_sends = False
+        self.members: list[GroupMember] = []
+        self.removed: list[tuple[str, str]] = []
+        self.fail_removals = False
 
     def run(self, events: Any) -> None: ...
     def stop(self) -> None: ...
@@ -51,6 +56,14 @@ class FakeClient:
 
     def react(self, chat: str, sender: str, message_id: str, emoji: str) -> None:
         self.reactions.append((chat, sender, message_id, emoji))
+
+    def group_participants(self, chat: str) -> list[GroupMember]:
+        return self.members
+
+    def remove_participant(self, chat: str, jid: str) -> None:
+        if self.fail_removals:
+            raise RuntimeError("not-authorized")
+        self.removed.append((chat, jid))
 
     def resolve_lid(self, lid: Address) -> Address | None:
         phone = self.lids.get(lid.user)
@@ -309,3 +322,68 @@ def test_leilao_cancelado_nao_e_anunciado(db: Database, seeder: Seeder) -> None:
     client = FakeClient()
     _cycle(db).tick(seed.store_id, GROUP, client, NOW)
     assert client.texts == [] and client.images == []
+
+
+# --- moderação -----------------------------------------------------------------------------------
+
+
+def _member(phone: str | None, *, admin: bool = False) -> GroupMember:
+    jid = f"{phone or '999'}@{'s.whatsapp.net' if phone else 'lid'}"
+    return GroupMember(jid=jid, phone=phone, is_admin=admin)
+
+
+def test_remove_so_quem_esta_na_blacklist(db: Database, seeder: Seeder) -> None:
+    store = seeder.store()
+    seeder.customer(store, "5511900000001", blacklisted=True)
+    seeder.customer(store, "5511900000002", blacklisted=True)  # admin: nunca remove
+    seeder.customer(store, "5511900000003")  # cliente comum
+    client = FakeClient()
+    client.members = [
+        _member("5511900000001"),
+        _member("5511900000002", admin=True),
+        _member("5511900000003"),
+        _member("5511900000004"),  # nem é cliente
+        _member(None),  # só LID
+    ]
+    result = Moderator(db, LOG).sweep(store, GROUP, client)
+    assert client.removed == [(GROUP, "5511900000001@s.whatsapp.net")]
+    assert (result.removed, result.skipped_admin, result.unresolved, result.failed) == (1, 1, 1, 0)
+
+
+def test_sem_blacklist_nem_consulta_o_grupo(db: Database, seeder: Seeder) -> None:
+    store = seeder.store()
+    seeder.customer(store)
+
+    class Explodes(FakeClient):
+        def group_participants(self, chat: str) -> list[GroupMember]:
+            raise AssertionError("não devia consultar")
+
+    assert Moderator(db, LOG).sweep(store, GROUP, Explodes()).removed == 0
+
+
+def test_limite_por_passada_e_o_resto_fica_para_a_proxima(db: Database, seeder: Seeder) -> None:
+    store = seeder.store()
+    phones = [f"551190000010{i}" for i in range(5)]
+    for phone in phones:
+        seeder.customer(store, phone, blacklisted=True)
+    client = FakeClient()
+    client.members = [_member(p) for p in phones]
+    moderator = Moderator(db, LOG, max_per_pass=2)
+    first = moderator.sweep(store, GROUP, client)
+    assert (first.removed, first.pending) == (2, 3)
+    second = moderator.sweep(store, GROUP, client)
+    assert second.removed == 2 and len(client.removed) == 4
+
+
+def test_para_de_insistir_depois_das_tentativas(db: Database, seeder: Seeder) -> None:
+    store = seeder.store()
+    seeder.customer(store, "5511900000020", blacklisted=True)
+    client = FakeClient()
+    client.members = [_member("5511900000020")]
+    client.fail_removals = True
+    moderator = Moderator(db, LOG, max_attempts=2)
+    assert moderator.sweep(store, GROUP, client).failed == 1
+    assert moderator.sweep(store, GROUP, client).failed == 1
+    assert moderator.sweep(store, GROUP, client).failed == 0  # desistiu
+    client.fail_removals = False
+    assert moderator.sweep(store, GROUP, client).removed == 0
