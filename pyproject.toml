@@ -31,7 +31,7 @@ where = ["src"]
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
-extend-exclude = ["docs/spike"]
+extend-exclude = ["docs/spike", "backend-src"]
 
 [tool.ruff.lint]
 # E/F/W básicos, isort, bugbear, pyupgrade, simplificações, complexidade (code smells) e Ruff-específicas.

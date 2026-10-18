@@ -14,7 +14,7 @@ vírgula e ponto, `R$`, espaços, maiúsculas, lixo, mensagem editada.
 Backend aplicadas (de `../Backend/migrations` ou de `BACKEND_MIGRATIONS_DIR`) e um login que
 pertence ao grupo `bot_runtime`, **sem `BYPASSRLS`** (o superusuário só semeia, porque ignora o
 RLS). Marcados com `@pytest.mark.integration`. **Pulados** (com o motivo) se faltar Docker ou a
-migration `bot-runtime`; o CI do GitHub ainda não tem acesso ao Backend, então hoje roda só local. Cobrem: contexto `app.store_id` por transação, acesso cruzado entre
+migration `bot-runtime`; No CI o workflow baixa só `migrations/` do Backend (`main`, repositório público) para `backend-src/` e aponta `BACKEND_MIGRATIONS_DIR` para lá. Cobrem: contexto `app.store_id` por transação, acesso cruzado entre
 lojas negado e `place_bid` com cada `outcome`. Os contêineres criados nos testes são removidos.
 
 ## WhatsApp (fase 3 em diante)
