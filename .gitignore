@@ -50,3 +50,6 @@ coverage.xml
 
 # Sessões do WhatsApp por loja
 sessions/
+
+# Migrations do Backend baixadas pelo CI
+backend-src/

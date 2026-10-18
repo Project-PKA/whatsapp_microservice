@@ -40,6 +40,13 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
+      # Os testes de integração aplicam as migrations do Backend (repositório público).
+      - uses: actions/checkout@v4
+        with:
+          repository: Project-PKA/Backend
+          ref: main
+          path: backend-src
+          sparse-checkout: migrations
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -49,6 +56,8 @@ jobs:
         run: make setup
       - name: Test
         run: make test
+        env:
+          BACKEND_MIGRATIONS_DIR: ${{ github.workspace }}/backend-src/migrations
       - uses: actions/upload-artifact@v4
         with:
           name: coverage
