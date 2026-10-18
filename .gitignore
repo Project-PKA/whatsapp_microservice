@@ -47,3 +47,6 @@ coverage.xml
 *.sqlite
 *.sqlite3
 *.db
+
+# Sessões do WhatsApp por loja
+sessions/
