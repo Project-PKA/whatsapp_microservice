@@ -41,6 +41,7 @@ def event(
     name: str = "Ash",
 ) -> Any:
     source = SimpleNamespace(
+        Chat=jid("120363012345678901", "g.us"),
         IsGroup=group,
         IsFromMe=me,
         Sender=sender or jid("5511987654321", device=69),
@@ -73,6 +74,8 @@ def test_evento_de_grupo_vira_mensagem() -> None:
     )
     assert m.sender == Address("5511987654321", "s.whatsapp.net")
     assert m.sender_alt is None and m.display_name == "Ash"
+    assert m.chat == "120363012345678901@g.us"
+    assert m.sender_jid == "5511987654321@s.whatsapp.net"
 
 
 def test_edicao_e_revogacao_sao_marcadas() -> None:

@@ -14,6 +14,7 @@ from uuid import UUID
 
 from pokemon_bot import repository
 from pokemon_bot.db import Database
+from pokemon_bot.trigger.whatsapp.ports import ClientHandle
 from pokemon_bot.trigger.whatsapp.session import StoreSession
 
 SessionFactory = Callable[[UUID, bool], StoreSession]
@@ -69,6 +70,12 @@ class SessionManager:
             self._sessions.clear()
         for session in sessions:
             session.stop()
+
+    def online_clients(self) -> list[tuple[UUID, ClientHandle]]:
+        """Sessões conectadas agora, com o cliente para enviar mensagens."""
+        with self._lock:
+            sessions = list(self._sessions.values())
+        return [(s.store_id, s.handle) for s in sessions if s.online and s.handle is not None]
 
     def running_count(self) -> int:
         with self._lock:

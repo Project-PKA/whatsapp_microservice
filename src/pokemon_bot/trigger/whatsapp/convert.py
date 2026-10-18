@@ -17,6 +17,13 @@ def jid_to_address(jid: Any, non_ad: Callable[[Any], Any]) -> Address | None:
     return Address(user=str(clean.User), server=str(clean.Server))
 
 
+def _jid_string(jid: Any) -> str | None:
+    """`usuario@servidor` como veio (a reação precisa do JID original do remetente)."""
+    if jid is None or not getattr(jid, "User", ""):
+        return None
+    return f"{jid.User}@{jid.Server}"
+
+
 def message_text(message: Any) -> str:
     """Texto da mensagem: `conversation` ou o texto estendido (resposta, link)."""
     return str(message.conversation or message.extendedTextMessage.text or "")
@@ -37,4 +44,6 @@ def to_incoming(event: Any, non_ad: Callable[[Any], Any]) -> IncomingMessage:
         sender=jid_to_address(source.Sender, non_ad),
         sender_alt=jid_to_address(source.SenderAlt, non_ad),
         display_name=str(info.Pushname) or None,
+        chat=_jid_string(source.Chat),
+        sender_jid=_jid_string(source.Sender),
     )

@@ -111,19 +111,73 @@ def find_or_create_visitor(conn: Connection, store_id: UUID, phone: str, name: s
     return CustomerRow(**row)
 
 
-_AUCTION_SQL = """
+_AUCTION_COLUMNS = """
 SELECT a.id AS auction_id, a.card_id, c.short_code, a.status::text AS status,
        a.type::text AS auction_type, a.start_time, a.end_time, a.initial_bid, a.min_increment,
        a.max_poll_value, t.name AS card_name, t.card_number, t.set_name, c.language,
        c.condition::text AS condition, c.is_foil, c.custom_photos AS photos,
        t.raw_data AS catalog_raw
+"""
+_AUCTION_FROM = """
   FROM cards_inventory c
   JOIN auctions a ON a.card_id = c.id AND a.store_id = c.store_id
   JOIN tcgdex_catalog t ON t.id = c.tcgdex_id
+"""
+_AUCTION_SQL = (
+    _AUCTION_COLUMNS
+    + _AUCTION_FROM
+    + """
  WHERE c.store_id = %(store)s AND {match}
  ORDER BY (a.status::text = ANY(%(open)s)) DESC, a.created_at DESC
  LIMIT 1
 """
+)
+
+
+@dataclass(frozen=True)
+class FinishedRow:
+    """Leilão encerrado com o vencedor (`None` se terminou sem lances)."""
+
+    auction: AuctionRow
+    winner_phone: str | None
+    winner_name: str | None
+    winning_amount: Decimal | None
+
+
+def list_started_since(
+    conn: Connection, store_id: UUID, since: datetime, now: datetime
+) -> list[AuctionRow]:
+    """Leilões que já começaram (e não foram cancelados) com início desde `since`.
+
+    Quem chama decide quais ainda não foram anunciados.
+    """
+    rows = conn.execute(
+        _AUCTION_COLUMNS + _AUCTION_FROM + " WHERE a.store_id = %s AND a.status::text <> ALL(%s)"
+        " AND a.start_time >= %s AND a.start_time <= %s ORDER BY a.start_time, a.id",
+        (store_id, ["PENDING", "CANCELLED"], since, now),
+    ).fetchall()
+    return [AuctionRow(**row) for row in rows]
+
+
+def list_finished(
+    conn: Connection, store_id: UUID, since: datetime, known_ids: list[UUID]
+) -> list[FinishedRow]:
+    """Leilões `FINISHED` que terminaram desde `since` ou que o bot já viu abertos (`known_ids`)."""
+    rows = conn.execute(
+        _AUCTION_COLUMNS
+        + ", w.phone AS winner_phone, w.name AS winner_name, b.amount AS winning_amount"
+        + _AUCTION_FROM
+        + " LEFT JOIN bids b ON b.id = a.winning_bid_id AND b.store_id = a.store_id"
+        " LEFT JOIN customers w ON w.id = b.customer_id AND w.store_id = a.store_id"
+        " WHERE a.store_id = %s AND a.status = 'FINISHED'"
+        " AND (a.end_time >= %s OR a.id = ANY(%s)) ORDER BY a.end_time, a.id",
+        (store_id, since, known_ids),
+    ).fetchall()
+    result = []
+    for row in rows:
+        extra = {k: row.pop(k) for k in ("winner_phone", "winner_name", "winning_amount")}
+        result.append(FinishedRow(AuctionRow(**row), **extra))
+    return result
 
 
 def find_auction_by_short_code(
