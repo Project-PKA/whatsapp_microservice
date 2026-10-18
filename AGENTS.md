@@ -43,18 +43,17 @@ Sem `make` (Windows): rode os comandos do `Makefile` com o Python do `.venv`.
   `refactor/`. PR em rascunho. **Nunca** merge sem o dono dizer, nunca force push, nunca mexer em
   branch protection, Environments ou secrets.
 - Pergunte antes de adicionar dependência (versão, licença e motivo). Aprovadas até agora: ruff,
-  mypy, pytest, pytest-cov e hypothesis (dev). Pendentes: psycopg (fase 2), testcontainers (fase 2) e
-  neonize (fase 3).
+  mypy, pytest, pytest-cov, hypothesis e testcontainers (dev); psycopg, psycopg-binary e psycopg-pool
+  (runtime). Pendente: neonize (fase 3).
 
 ## Banco: tabelas e funções acessadas
 
 Fonte da verdade: [`docs/integration.md`](docs/integration.md). Resumo:
 
-- **Funções:** `place_bid`, `advance_auctions` (existem); `bot_set_whatsapp_status`, achar-ou-criar
-  Visitante e leilão ativo por `short_code` (a pedir ao Backend).
-- **Tabelas:** `stores`, `customers`, `cards_inventory`, `auctions`, `bids`, `tcgdex_catalog` (leitura
-  e os efeitos das funções) e `whatsapp_sessions` (decisão pendente, ADR 0015).
-- Papel: `bot_runtime` (pendente, D15), **sem `BYPASSRLS`**. Toda transação define `app.store_id`.
+- **Funções:** `place_bid`, `advance_auctions`, `bot_set_whatsapp_status`.
+- **Tabelas (por coluna):** `stores`, `customers`, `cards_inventory`, `auctions`, `bids`,
+  `tcgdex_catalog` e `whatsapp_sessions` (só estado de conexão, D17 opção a).
+- Papel: grupo `bot_runtime` (migration 0021 do Backend), **sem `BYPASSRLS`**. Toda transação define `app.store_id`.
   Em teste de RLS, nunca superusuário. Não altere o Backend: abra issue lá com o pedido exato.
 - Mudar essa lista é mudança de contrato: atualize `docs/integration.md` e `ARCHITECTURE.md`.
 

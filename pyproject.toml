@@ -7,7 +7,11 @@ name = "pokemon-bot"
 version = "0.1.0"
 description = "Bot de WhatsApp do pokemonAuction: lê lances no grupo e registra pela função place_bid do banco."
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+  "psycopg==3.3.6",
+  "psycopg-binary==3.3.6",
+  "psycopg-pool==3.3.3",
+]
 
 [project.optional-dependencies]
 # Versões fixas: aprovadas pelo dono em 2026-10-18 (ruff, mypy, pytest e hypothesis: MIT/MPL-2.0).
@@ -17,6 +21,7 @@ dev = [
   "pytest==9.1.1",
   "pytest-cov==7.1.0",
   "hypothesis==6.170.1",
+  "testcontainers[postgres]==4.15.0",
 ]
 
 [tool.setuptools.packages.find]

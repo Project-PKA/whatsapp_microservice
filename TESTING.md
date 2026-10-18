@@ -8,11 +8,13 @@ do participante e o tratamento de cada `outcome` de `place_bid`.
 `tests/`. Eventos simulados. O parser tem testes por exemplo e por propriedade (hypothesis):
 vírgula e ponto, `R$`, espaços, maiúsculas, lixo, mensagem editada.
 
-## Integração (fase 2)
+## Integração
 
-Postgres real em contêiner efêmero (testcontainers), com as migrations do Backend aplicadas, usando
-um papel **sem `BYPASSRLS`** (nunca o superusuário, que ignora o RLS). Marcados com
-`@pytest.mark.integration`. Cobrem: contexto `app.store_id` por transação, acesso cruzado entre
+`tests/integration/`. Postgres real em contêiner efêmero (testcontainers), com as migrations do
+Backend aplicadas (de `../Backend/migrations` ou de `BACKEND_MIGRATIONS_DIR`) e um login que
+pertence ao grupo `bot_runtime`, **sem `BYPASSRLS`** (o superusuário só semeia, porque ignora o
+RLS). Marcados com `@pytest.mark.integration`. **Pulados** (com o motivo) se faltar Docker ou a
+migration `bot-runtime`; o CI do GitHub ainda não tem acesso ao Backend, então hoje roda só local. Cobrem: contexto `app.store_id` por transação, acesso cruzado entre
 lojas negado e `place_bid` com cada `outcome`. Os contêineres criados nos testes são removidos.
 
 ## WhatsApp (fase 3 em diante)
