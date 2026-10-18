@@ -34,11 +34,21 @@ jobs:
           make setup
           make test
 
+      # Não bloqueia enquanto a "Automatic Analysis" do SonarCloud estiver ligada: o scanner recusa
+      # rodar junto com ela ("You are running CI analysis while Automatic Analysis is enabled"). O
+      # gate da PR continua vindo do check "SonarCloud Code Analysis". Quando o dono desligar a
+      # Automatic Analysis (shared/OWNER.md, A4), trocar por `continue-on-error: false`.
       - name: SonarCloud Scan
+        id: scan
         if: env.SONAR_TOKEN != ''
+        continue-on-error: true
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Aviso de falha no scanner
+        if: steps.scan.outcome == 'failure'
+        run: echo "::warning::O scanner do SonarCloud falhou (provável conflito com a Automatic Analysis, OWNER.md A4). Veja o log do passo anterior."
 
       - name: Aviso
         if: env.SONAR_TOKEN == ''
