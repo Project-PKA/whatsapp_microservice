@@ -1,83 +1,17 @@
 name: Deploy
 
-# Padrão "build once, deploy many": a imagem é construída e publicada
-# uma única vez (job `build`), identificada pelo SHA do commit, e o
-# mesmo artefato é promovido entre ambientes via GitHub Environments
-# (com approval/secrets configurados na interface do GitHub — ver
-# checklist de configuração manual no README.md).
-#
-# TODO(bootstrap): ajustar nomes de ambientes, registry e passo de
-# deploy real (kubectl, ECS, systemd, ssh, etc) de acordo com a
-# infraestrutura do projeto.
+# Por enquanto só constrói a imagem (sem publicar). Ainda não existe VPS nem registry
+# (shared/OWNER.md, A7), e Environments e secrets são do dono (A3). Quando existirem, este fluxo
+# segue o do Backend: imagem identificada pelo SHA, promovida entre Environments com aprovação.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Ambiente de destino"
-        required: true
-        type: choice
-        options:
-          - dev
-          - staging
-          - production
-
-env:
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
     name: Build image
     runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.tag.outputs.value }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Define image tag
-        id: tag
-        run: echo "value=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      # TODO(bootstrap): login no registry real (ghcr.io, ECR, Docker Hub...)
-      # - uses: docker/login-action@v3
-      #   with:
-      #     registry: TODO
-      #     username: TODO
-      #     password: ${{ secrets.REGISTRY_TOKEN }}
-
-      - name: Build and push image
-        run: |
-          echo "TODO(bootstrap): docker build -t $IMAGE_NAME:${{ steps.tag.outputs.value }} ."
-          echo "TODO(bootstrap): docker push $IMAGE_NAME:${{ steps.tag.outputs.value }}"
-
-  deploy-dev:
-    name: Deploy (dev)
-    needs: build
-    runs-on: ubuntu-latest
-    environment: dev
-    if: github.event_name == 'push' || github.event.inputs.environment == 'dev'
-    steps:
-      - name: Deploy
-        run: echo "TODO bootstrap - deploy da imagem ${{ needs.build.outputs.image_tag }} no ambiente dev"
-
-  deploy-staging:
-    name: Deploy (staging)
-    needs: build
-    runs-on: ubuntu-latest
-    environment: staging
-    if: github.event.inputs.environment == 'staging'
-    steps:
-      - name: Deploy
-        run: echo "TODO bootstrap - deploy da imagem ${{ needs.build.outputs.image_tag }} no ambiente staging"
-
-  deploy-production:
-    name: Deploy (production)
-    needs: build
-    runs-on: ubuntu-latest
-    environment: production
-    if: github.event.inputs.environment == 'production'
-    steps:
-      - name: Deploy
-        run: echo "TODO bootstrap - deploy da imagem ${{ needs.build.outputs.image_tag }} no ambiente production"
+      - name: Build
+        run: docker build -t whatsapp-microservice:${{ github.sha }} .

@@ -1,21 +1,33 @@
-.PHONY: setup test lint build run
+.PHONY: setup test lint format typecheck validate build run clean
 
-# Cada alvo abaixo é um placeholder. Na entrevista do BOOTSTRAP.md,
-# substitua o comando de eco pelo comando real da stack escolhida.
-# Este Makefile é a fonte da verdade usada pelo CI (.github/workflows/ci.yml)
-# e pelo Dockerfile — evite duplicar comandos diretamente nos workflows.
+# Fonte da verdade dos comandos: o CI (.github/workflows/ci.yml) e o Dockerfile só chamam estes alvos.
+# Usa o ambiente virtual local (.venv) quando existir; no CI usa o python do runner.
+PY := $(if $(wildcard .venv/Scripts/python.exe),.venv/Scripts/python.exe,$(if $(wildcard .venv/bin/python),.venv/bin/python,python))
 
-setup: ## Instala dependências
-	@echo "TODO(bootstrap): comando de install da stack escolhida" && exit 1
+setup: ## Instala o pacote e as ferramentas de desenvolvimento
+	$(PY) -m pip install -e ".[dev]"
 
-test: ## Roda a suíte de testes (ver TESTING.md)
-	@echo "TODO(bootstrap): comando de testes da stack escolhida" && exit 1
+test: ## Testes com cobertura (relatório em coverage.xml)
+	$(PY) -m pytest --cov --cov-report=term-missing --cov-report=xml
 
-lint: ## Roda lint + formatter em modo check
-	@echo "TODO(bootstrap): comando de lint da stack escolhida" && exit 1
+lint: ## Lint e formatação em modo check
+	$(PY) -m ruff check .
+	$(PY) -m ruff format --check .
 
-build: ## Compila/empacota o serviço
-	@echo "TODO(bootstrap): comando de build da stack escolhida" && exit 1
+format: ## Formata o código
+	$(PY) -m ruff check --fix .
+	$(PY) -m ruff format .
 
-run: ## Sobe o serviço localmente
-	@echo "TODO(bootstrap): comando de run da stack escolhida" && exit 1
+typecheck: ## Checagem de tipos (mypy estrito)
+	$(PY) -m mypy
+
+validate: lint typecheck test ## Tudo que o CI exige
+
+build: ## Valida que o pacote compila
+	$(PY) -m compileall -q src
+
+run: ## Sobe o worker localmente (precisa do .env)
+	$(PY) -m pokemon_bot
+
+clean: ## Remove artefatos
+	rm -rf build dist coverage.xml .coverage .pytest_cache .mypy_cache .ruff_cache

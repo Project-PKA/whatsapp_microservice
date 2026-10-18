@@ -1,11 +1,6 @@
 name: CodeQL
 
 # Análise de segurança estática via CodeQL.
-#
-# TODO(bootstrap): definir a(s) linguagem(ns) real(is) do serviço na
-# matrix abaixo. Valores suportados:
-# https://docs.github.com/pt/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
-# (ex: 'go', 'javascript-typescript', 'python', 'java-kotlin', 'ruby', 'csharp')
 
 on:
   push:
@@ -16,30 +11,9 @@ on:
     - cron: "0 6 * * 1" # segunda-feira, 06:00 UTC
 
 jobs:
-  # Enquanto o repositório for o modelo (ainda há TODO(bootstrap) em Makefile), os passos que dependem
-  # da stack não têm o que rodar e falhariam em todo PR. O portão os pula; quando o bootstrap
-  # terminar e o marcador sumir, tudo passa a rodar sozinho.
-  gate:
-    name: Modelo?
-    runs-on: ubuntu-latest
-    outputs:
-      template: ${{ steps.check.outputs.template }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check
-        run: |
-          if grep -q 'TODO(bootstrap)' Makefile; then
-            echo "template=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Repositório ainda é o modelo (TODO(bootstrap) em Makefile); análise ignorada."
-          else
-            echo "template=false" >> "$GITHUB_OUTPUT"
-          fi
-
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-    needs: gate
-    if: needs.gate.outputs.template != 'true'
     permissions:
       actions: read
       contents: read
@@ -47,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["TODO"] # TODO(bootstrap): substituir pela(s) linguagem(ns) real(is)
+        language: ["python"]
 
     steps:
       - uses: actions/checkout@v4
@@ -56,9 +30,6 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

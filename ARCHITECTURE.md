@@ -1,46 +1,65 @@
 # Arquitetura
 
-> Esqueleto a ser preenchido na entrevista do [`BOOTSTRAP.md`](BOOTSTRAP.md).
-> Não copie a arquitetura de outro serviço para cá — este documento
-> descreve apenas a fatia deste serviço.
-
 ## Responsabilidade única
 
-**TODO(bootstrap):** em uma frase, o que este serviço faz e, tão
-importante quanto, o que ele **não** faz.
+Conversar com o WhatsApp em nome de cada loja: ler lances no grupo, registrá-los pela função
+`place_bid` do banco, postar a carta e anunciar o vencedor. **Não** implementa regra de lance, **não**
+manda mensagem privada automática (ADR 0006), **não** adiciona participantes por API (maior gatilho
+de ban) e **não** é dono do schema.
 
 ## O que ele consome
 
-**TODO(bootstrap):** de onde vem o trabalho deste serviço (fila, evento,
-requisição HTTP, cron) — referenciar [`docs/integration.md`](docs/integration.md)
-para o contrato completo.
+- Mensagens dos grupos de WhatsApp (um cliente neonize por loja).
+- O relógio: a cada minuto, por loja, a agenda chama `advance_auctions`.
+- O banco compartilhado (estado dos leilões e das lojas). Contrato em [`docs/integration.md`](docs/integration.md).
 
 ## O que ele produz
 
-**TODO(bootstrap):** o efeito colateral/saída deste serviço (mensagem
-publicada, resposta HTTP, escrita em banco, chamada a uma API externa).
+- Lances gravados (`place_bid`) e virada de estado dos leilões (`advance_auctions`).
+- Mensagens no grupo: reação a cada lance, carta (imagem e legenda) ao abrir, vencedor marcado ao encerrar.
+- `stores.whatsapp_status` e `whatsapp_group_id`.
 
 ## Comunicação com o resto do sistema
 
-**TODO(bootstrap):** listar cada sistema/serviço com quem este serviço
-troca dados, e o mecanismo usado (fila X, evento Y, HTTP para Z, banco
-compartilhado W). Se houver banco compartilhado, a lista de
-tabelas/schemas acessados deve espelhar a tabela em
-[`docs/integration.md`](docs/integration.md).
+| Com quem | Mecanismo |
+| --- | --- |
+| PostgreSQL do Backend | SQL, papel próprio, RLS por `app.store_id` |
+| WhatsApp | neonize (whatsmeow), sessão por QR Code |
+| Backend (HTTP) | nenhuma chamada direta hoje; se for preciso, vira ADR |
+
+Tabelas e funções acessadas: ver a lista em [`docs/integration.md`](docs/integration.md), que este
+documento espelha.
 
 ## Diagrama de integração
 
-> Mostra só a fatia de integração deste serviço — não o sistema inteiro.
-
 ```mermaid
 flowchart LR
-    Upstream[TODO: quem aciona este serviço] -->|TODO: mecanismo| Service[TODO: nome deste serviço]
-    Service -->|TODO: mecanismo| Downstream[TODO: quem este serviço aciona]
+    Grupo[Grupo de WhatsApp] <-->|neonize| Bot[whatsapp_microservice]
+    Bot -->|place_bid, advance_auctions, leituras| DB[(PostgreSQL do Backend)]
+    Backend[Backend] -->|migrations, painel| DB
+    Bot -->|/health, /ready| Orq[Orquestrador]
 ```
+
+## Estrutura do código
+
+```text
+src/pokemon_bot/
+  parser.py        # "#A41 R$ 50,00" -> ParsedBid (contrato com o Backend)
+  participant.py   # telefone, LID e fallback
+  reactions.py     # outcome de place_bid -> reação no grupo
+  templates.py     # textos configuráveis por loja
+  trigger/         # tudo que aciona o bot: health, agenda, eventos do WhatsApp
+  config.py, logging_setup.py
+```
+
+O núcleo não importa neonize nem psycopg.
 
 ## Decisões relevantes
 
-**TODO(bootstrap/contínuo):** decisões de design que não são óbvias a
-partir do código (trade-offs, restrições de infraestrutura, motivos de
-uma escolha específica). Novas decisões relevantes devem ser
-adicionadas aqui ao longo da vida do serviço, não só no bootstrap.
+- Python com neonize (ADR 0015). O spike do dono (`docs/spike/`) é referência, não código de produção.
+- Voto de enquete nativa chega como hash sha256 da opção e como a seleção completa atual: compare
+  com o snapshot anterior. Só vale se a enquete nativa for adotada (pergunta aberta ao dono).
+- JID sempre sem sufixo de dispositivo (`JIDToNonAD`). Em grupo o remetente pode ser LID: tentar
+  `SenderAlt` e `get_pn_from_lid`; se não resolver, registrar o fato (sem o LID) e não dar lance.
+- Nenhuma exceção escapa do callback do whatsmeow: todo handler fica em try/except.
+- Envio com ritmo humano (atrasos e limite por minuto) para reduzir risco de ban.

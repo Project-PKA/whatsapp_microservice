@@ -6,13 +6,9 @@ name: GitHub Agent
 #   - valida o nome da branch
 #   - aplica labels automáticas com base no tipo de commit
 #   - adiciona o PR/issue a um GitHub Project
-#   - comenta no PR o resultado de lint/testes/cobertura do job CI
 #
-# TODO(bootstrap): criar o GitHub Project e preencher PROJECT_URL nos
-# secrets/vars do repositório, e garantir que GH_PROJECT_TOKEN (um PAT
-# com escopo `project`) exista como secret — o GITHUB_TOKEN padrão não
-# tem permissão para adicionar itens a um Project (ver checklist no
-# README.md).
+# O passo do GitHub Project só funciona depois que o dono criar o Project, preencher PROJECT_URL
+# e cadastrar GH_PROJECT_TOKEN (shared/OWNER.md, A8). Até lá ele não bloqueia.
 
 on:
   pull_request:
@@ -40,9 +36,8 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          # TODO(bootstrap): ajustar o padrão de nome de branch do time,
-          # se for diferente de <tipo>/<descricao-curta>.
-          pattern='^(feat|fix|chore|docs|refactor|test|ci)/[a-z0-9._-]+$'
+          # Padrão do projeto: <tipo>/<descricao-curta> (feature, fix, chore, docs, test, refactor, ci).
+          pattern='^(feat|feature|fix|chore|docs|refactor|test|ci)/[a-z0-9._-]+$'
           if ! echo "$BRANCH_NAME" | grep -qE "$pattern"; then
             echo "::error::Nome de branch '$BRANCH_NAME' não segue o padrão '$pattern'"
             exit 1
@@ -81,28 +76,10 @@ jobs:
   add-to-project:
     name: Add PR to GitHub Project
     runs-on: ubuntu-latest
+    # Só roda quando o dono criar o Project e cadastrar PROJECT_URL e GH_PROJECT_TOKEN (shared/OWNER.md, A8).
+    if: vars.PROJECT_URL != ''
     steps:
-      # TODO(bootstrap): descomentar após criar o Project e configurar os secrets.
-      # - uses: actions/add-to-project@v1
-      #   with:
-      #     project-url: ${{ vars.PROJECT_URL }}
-      #     github-token: ${{ secrets.GH_PROJECT_TOKEN }}
-      - run: echo "TODO bootstrap - configurar GitHub Project (ver README.md)"
-
-  comment-ci-results:
-    name: Comment CI results on PR
-    runs-on: ubuntu-latest
-    steps:
-      # TODO(bootstrap): buscar o resultado real do workflow CI (via
-      # workflow_run ou artifact de cobertura) e substituir o corpo
-      # fixo abaixo por um resumo de lint/testes/cobertura.
-      - name: Comment
-        uses: actions/github-script@v7
+      - uses: actions/add-to-project@v1
         with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: "TODO(bootstrap): comentário automático com resultado de lint/testes/cobertura ainda não configurado.",
-            });
+          project-url: ${{ vars.PROJECT_URL }}
+          github-token: ${{ secrets.GH_PROJECT_TOKEN }}
