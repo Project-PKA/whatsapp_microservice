@@ -102,8 +102,8 @@ def test_remetente_invalido_sem_lid() -> None:
 
 
 def test_nome_limpo() -> None:
-    assert clean_display_name("  Ash​   Ketchum\n") == "Ash Ketchum"
-    assert clean_display_name("‮Ash") == "Ash"
+    assert clean_display_name("  Ash\u200b   Ketchum\n") == "Ash Ketchum"
+    assert clean_display_name("\u202eAsh") == "Ash"
     assert clean_display_name("   ") is None
     assert clean_display_name(None) is None
     assert len(clean_display_name("x" * 500) or "") == 100
