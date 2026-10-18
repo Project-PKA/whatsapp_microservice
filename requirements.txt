@@ -1,0 +1,3 @@
+# Dependências de RUNTIME da imagem Docker, travadas com hash (pip --require-hashes).
+# Hoje não há nenhuma. Ao aprovar uma dependência nova: some em pyproject.toml e regenere este
+# arquivo com os hashes dos wheels de Linux (ver docs/dependencias.md).
