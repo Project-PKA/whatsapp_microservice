@@ -8,10 +8,11 @@ Ignora o próprio projeto (entrada de diretório, sem wheel). Só entram pacotes
 from __future__ import annotations
 
 import sys
-import tomllib
 from pathlib import Path
 
-HEADER = """# Dependências de RUNTIME da imagem Docker, travadas com versão e hash (Linux, Python 3.12).
+import tomllib
+
+HEADER = """# Dependências de RUNTIME da imagem Docker, travadas com versão e hash (Linux, Py 3.12).
 # GERADO por `make lock` a partir do pyproject.toml. Não edite à mão (docs/dependencias.md).
 """
 
@@ -32,7 +33,7 @@ def convert(lock: dict[str, object]) -> str:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
-        print(__doc__)  # noqa: T201
+        print(__doc__)
         return 2
     lock = tomllib.loads(Path(argv[1]).read_text(encoding="utf-8"))
     Path(argv[2]).write_text(convert(lock), encoding="utf-8", newline="\n")

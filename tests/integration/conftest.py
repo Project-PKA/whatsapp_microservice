@@ -22,6 +22,10 @@ import pytest
 
 from pokemon_bot.db import Database
 
+# O Ryuk (contêiner que apaga os outros) falha quando há vários testcontainers no mesmo Docker; a
+# fixture já para o contêiner no `finally`.
+os.environ.setdefault("TESTCONTAINERS_RYUK_DISABLED", "true")
+
 BOT_USER = "bot_test"
 BOT_PASSWORD = "bot-test-password"
 
