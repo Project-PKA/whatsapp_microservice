@@ -1,4 +1,4 @@
-# Dependências de RUNTIME da imagem Docker, travadas com versão e hash (Linux, Python 3.12).
+# Dependências de RUNTIME da imagem Docker, travadas com versão e hash (Linux, Py 3.12).
 # GERADO por `make lock` a partir do pyproject.toml. Não edite à mão (docs/dependencias.md).
 psycopg==3.3.6 \
     --hash=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631
