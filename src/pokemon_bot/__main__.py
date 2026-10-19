@@ -18,6 +18,7 @@ from pokemon_bot.config import Settings, load_settings
 from pokemon_bot.db import Database
 from pokemon_bot.logging_setup import configure_logging
 from pokemon_bot.moderation import Moderator
+from pokemon_bot.template_store import TemplateStore
 from pokemon_bot.trigger.health import start_health_server
 from pokemon_bot.trigger.whatsapp.manager import SessionManager
 from pokemon_bot.trigger.whatsapp.neonize_handle import NeonizeHandle
@@ -29,10 +30,14 @@ SYNC_INTERVAL_SECONDS = 60
 
 
 def build_manager(
-    settings: Settings, db: Database, groups: GroupDirectory, log: logging.Logger
+    settings: Settings,
+    db: Database,
+    groups: GroupDirectory,
+    log: logging.Logger,
+    templates: TemplateStore,
 ) -> SessionManager:
     reporter = DbStatusReporter(db, log)
-    processor = BidProcessor(db, groups, log)
+    processor = BidProcessor(db, groups, log, templates_for=templates)
     qr_sink = ConsoleQrSink() if settings.console_qr else None
 
     def session_path(store_id: UUID) -> str:
@@ -93,9 +98,10 @@ def main() -> None:
     if settings.database_url:
         db = Database(settings.database_url)
         groups = GroupDirectory(db)
-        manager = build_manager(settings, db, groups, log)
+        templates = TemplateStore(db, log)
+        manager = build_manager(settings, db, groups, log, templates)
         storage = Path(settings.storage_dir) if settings.storage_dir else None
-        cycle = AuctionCycle(db, log, storage_dir=storage)
+        cycle = AuctionCycle(db, log, storage_dir=storage, templates_for=templates)
         moderator = Moderator(db, log)
 
     server = start_health_server(

@@ -152,25 +152,27 @@ class FinishedRow:
     winning_amount: Decimal | None
 
 
-def list_started_since(
+def list_started_unannounced(
     conn: Connection, store_id: UUID, since: datetime, now: datetime
 ) -> list[AuctionRow]:
-    """Leilões que já começaram (e não foram cancelados) com início desde `since`.
-
-    Quem chama decide quais ainda não foram anunciados.
+    """Leilões que já começaram (e não foram cancelados), com início desde `since`, cuja abertura
+    ainda não foi anunciada (`bot_opened_announced_at` vazio).
     """
     rows = conn.execute(
         _AUCTION_COLUMNS + _AUCTION_FROM + " WHERE a.store_id = %s AND a.status::text <> ALL(%s)"
+        " AND a.bot_opened_announced_at IS NULL"
         " AND a.start_time >= %s AND a.start_time <= %s ORDER BY a.start_time, a.id",
         (store_id, ["PENDING", "CANCELLED"], since, now),
     ).fetchall()
     return [AuctionRow(**row) for row in rows]
 
 
-def list_finished(
-    conn: Connection, store_id: UUID, since: datetime, known_ids: list[UUID]
+def list_finished_unannounced(
+    conn: Connection, store_id: UUID, since: datetime
 ) -> list[FinishedRow]:
-    """Leilões `FINISHED` que terminaram desde `since` ou que o bot já viu abertos (`known_ids`)."""
+    """Leilões `FINISHED` ainda não anunciados (`bot_closed_announced_at` vazio) que terminaram
+    desde `since` ou cuja abertura o bot já anunciou (esses são anunciados mesmo depois da janela).
+    """
     rows = conn.execute(
         _AUCTION_COLUMNS
         + ", w.phone AS winner_phone, w.name AS winner_name, b.amount AS winning_amount"
@@ -178,8 +180,10 @@ def list_finished(
         + " LEFT JOIN bids b ON b.id = a.winning_bid_id AND b.store_id = a.store_id"
         " LEFT JOIN customers w ON w.id = b.customer_id AND w.store_id = a.store_id"
         " WHERE a.store_id = %s AND a.status = 'FINISHED'"
-        " AND (a.end_time >= %s OR a.id = ANY(%s)) ORDER BY a.end_time, a.id",
-        (store_id, since, known_ids),
+        " AND a.bot_closed_announced_at IS NULL"
+        " AND (a.end_time >= %s OR a.bot_opened_announced_at IS NOT NULL)"
+        " ORDER BY a.end_time, a.id",
+        (store_id, since),
     ).fetchall()
     result = []
     for row in rows:
@@ -188,29 +192,42 @@ def list_finished(
     return result
 
 
+def mark_announced(conn: Connection, store_id: UUID, auction_id: UUID, kind: str) -> None:
+    """Grava no banco que a abertura (`opened`) ou o encerramento (`closed`) já foi anunciado.
+
+    É a única escrita do bot em `auctions` fora das funções do Backend (migration 0023, `UPDATE`
+    só nessas duas colunas). Não sobrescreve um marcador já gravado.
+    """
+    column = {
+        "opened": "bot_opened_announced_at",
+        "closed": "bot_closed_announced_at",
+    }[kind]
+    conn.execute(
+        f"UPDATE auctions SET {column} = now()"  # `column` vem do dicionário acima
+        f" WHERE id = %s AND store_id = %s AND {column} IS NULL",
+        (auction_id, store_id),
+    )
+
+
+def load_templates(conn: Connection, store_id: UUID) -> dict[str, str]:
+    """Textos próprios da loja (`store_message_templates`). Sem linha, vale o padrão do bot."""
+    rows = conn.execute(
+        "SELECT key, body FROM store_message_templates WHERE store_id = %s", (store_id,)
+    ).fetchall()
+    return {row["key"]: row["body"] for row in rows}
+
+
 def find_auction_by_short_code(
     conn: Connection, store_id: UUID, short_code: str
 ) -> AuctionRow | None:
     """Leilão da carta com esse `short_code`: o em andamento ou, se não houver, o mais recente.
 
     O mais recente (já encerrado ou cancelado) volta para `place_bid` responder
-    `AUCTION_NOT_ACTIVE`, em vez de o bot ficar mudo. A caixa: a restrição do banco aceita `A41`
-    e `a41` como cartas diferentes; tenta a correspondência exata e só depois a sem diferenciar
-    caixa, e apenas quando ela é única (ambiguidade devolve `None`).
+    `AUCTION_NOT_ACTIVE`, em vez de o bot ficar mudo. O banco guarda o `short_code` em maiúsculas
+    (migration 0023 do Backend), então `#a41` e `#A41` são a mesma carta.
     """
-    params = {"store": store_id, "open": list(OPEN_STATUSES), "code": short_code}
+    params = {"store": store_id, "open": list(OPEN_STATUSES), "code": short_code.upper()}
     row = conn.execute(_AUCTION_SQL.format(match="c.short_code = %(code)s"), params).fetchone()
-    if row is None:
-        cards = conn.execute(
-            "SELECT count(*) AS n FROM cards_inventory"
-            " WHERE store_id = %s AND upper(short_code) = upper(%s)",
-            (store_id, short_code),
-        ).fetchone()
-        if cards is None or cards["n"] != 1:
-            return None
-        row = conn.execute(
-            _AUCTION_SQL.format(match="upper(c.short_code) = upper(%(code)s)"), params
-        ).fetchone()
     return AuctionRow(**row) if row else None
 
 

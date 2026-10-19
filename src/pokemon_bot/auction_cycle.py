@@ -4,19 +4,20 @@ A virada de estado é do banco (`advance_auctions`, que o job do Backend também
 minuto). Por isso o bot NÃO anuncia só o que ele mesmo virou: a cada passada ele olha o que já
 abriu ou já encerrou e ainda não foi anunciado.
 
-Limite conhecido: o registro do que foi anunciado fica em memória (`InMemoryLedger`). Depois de um
-reinício, o que abriu ou encerrou dentro da janela (`window`) pode ser anunciado de novo. A
-solução é guardar o marcador no banco (pedido ao Backend, com UPDATE só nessa coluna).
+O que já foi anunciado fica no banco (`bot_opened_announced_at` e `bot_closed_announced_at` em
+`auctions`, migration 0023 do Backend), então um reinício não repete anúncio. A janela (`window`)
+só evita anunciar leilão antigo na primeira passada depois de ligar o bot. Se o envio falha, o
+marcador não é gravado e a próxima passada tenta de novo; se o bot cair entre enviar e gravar, o
+anúncio pode sair uma vez a mais (entrega pelo menos uma vez).
 """
 
 from __future__ import annotations
 
 import logging
-import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal
 from uuid import UUID
 
 from pokemon_bot import repository
@@ -28,30 +29,6 @@ from pokemon_bot.trigger.whatsapp.ports import ClientHandle
 Kind = Literal["opened", "closed"]
 # Horário de Brasília. O Brasil não tem horário de verão desde 2019; evita depender do tzdata.
 BRT = timezone(timedelta(hours=-3))
-
-
-class Ledger(Protocol):
-    def has(self, kind: Kind, auction_id: UUID) -> bool: ...
-    def add(self, kind: Kind, auction_id: UUID) -> None: ...
-    def opened_ids(self) -> list[UUID]: ...
-
-
-class InMemoryLedger:
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._seen: set[tuple[Kind, UUID]] = set()
-
-    def has(self, kind: Kind, auction_id: UUID) -> bool:
-        with self._lock:
-            return (kind, auction_id) in self._seen
-
-    def add(self, kind: Kind, auction_id: UUID) -> None:
-        with self._lock:
-            self._seen.add((kind, auction_id))
-
-    def opened_ids(self) -> list[UUID]:
-        with self._lock:
-            return [a for k, a in self._seen if k == "opened"]
 
 
 def format_deadline(moment: datetime) -> str:
@@ -77,14 +54,12 @@ class AuctionCycle:
         db: Database,
         logger: logging.Logger,
         *,
-        ledger: Ledger | None = None,
         storage_dir: Path | None = None,
         templates_for: Callable[[UUID], Mapping[str, str] | None] = lambda _store: None,
         window: timedelta = timedelta(minutes=15),
     ) -> None:
         self._db = db
         self._log = logger
-        self._ledger: Ledger = ledger or InMemoryLedger()
         self._storage_dir = storage_dir
         self._templates_for = templates_for
         self._window = window
@@ -97,15 +72,24 @@ class AuctionCycle:
         since = moment - self._window
         with self._db.store_transaction(store_id) as conn:
             repository.advance_auctions(conn, store_id, moment)
-            started = repository.list_started_since(conn, store_id, since, moment)
-            finished = repository.list_finished(conn, store_id, since, self._ledger.opened_ids())
+            started = repository.list_started_unannounced(conn, store_id, since, moment)
+            finished = repository.list_finished_unannounced(conn, store_id, since)
         templates = self._templates_for(store_id)
         for auction in started:
-            if not self._ledger.has("opened", auction.auction_id):
-                self._announce_open(store_id, group_id, client, auction, templates)
+            self._announce_open(store_id, group_id, client, auction, templates)
         for row in finished:
-            if not self._ledger.has("closed", row.auction.auction_id):
-                self._announce_close(group_id, client, row, templates)
+            self._announce_close(store_id, group_id, client, row, templates)
+
+    def _mark(self, store_id: UUID, auction_id: UUID, kind: Kind) -> None:
+        """Grava o marcador no banco; se falhar, só registra (o próximo ciclo reenvia)."""
+        try:
+            with self._db.store_transaction(store_id) as conn:
+                repository.mark_announced(conn, store_id, auction_id, kind)
+        except Exception as error:
+            self._log.error(
+                "falha ao gravar o marcador de anúncio",
+                extra={"context": {"kind": kind, "error": type(error).__name__}},
+            )
 
     def _guard(self, what: str, action: Callable[[], None]) -> bool:
         try:
@@ -146,10 +130,11 @@ class AuctionCycle:
                 client.send_text(group_id, caption)
 
         if self._guard("open", send):
-            self._ledger.add("opened", auction.auction_id)
+            self._mark(store_id, auction.auction_id, "opened")
 
     def _announce_close(
         self,
+        store_id: UUID,
         group_id: str,
         client: ClientHandle,
         row: FinishedRow,
@@ -170,4 +155,4 @@ class AuctionCycle:
                 },
             )
         if self._guard("close", lambda: client.send_text(group_id, text)):
-            self._ledger.add("closed", auction.auction_id)
+            self._mark(store_id, auction.auction_id, "closed")
