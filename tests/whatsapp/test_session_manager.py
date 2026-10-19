@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from pokemon_bot.events import IncomingMessage
 from pokemon_bot.participant import Address
 from pokemon_bot.trigger.whatsapp.manager import SessionManager
-from pokemon_bot.trigger.whatsapp.ports import SessionEvents
+from pokemon_bot.trigger.whatsapp.ports import GroupMember, SessionEvents
 from pokemon_bot.trigger.whatsapp.session import Backoff, StoreSession
 
 LOG = logging.getLogger("t.session")
@@ -56,6 +56,11 @@ class ScriptedHandle:
     def react(self, chat: str, sender: str, message_id: str, emoji: str) -> None: ...
     def resolve_lid(self, lid: Address) -> Address | None:
         return None
+
+    def group_participants(self, chat: str) -> list[GroupMember]:
+        return []
+
+    def remove_participant(self, chat: str, jid: str) -> None: ...
 
 
 def _session(

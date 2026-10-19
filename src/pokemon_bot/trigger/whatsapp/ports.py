@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
@@ -39,6 +40,21 @@ class ClientHandle(Protocol):
     def resolve_lid(self, lid: Address) -> Address | None:
         """LID -> telefone, ou `None` se não souber."""
         ...
+
+    def group_participants(self, chat: str) -> list[GroupMember]: ...
+
+    def remove_participant(self, chat: str, jid: str) -> None:
+        """Remove do grupo. Exige que o bot seja administrador; lança se o WhatsApp recusar."""
+        ...
+
+
+@dataclass(frozen=True)
+class GroupMember:
+    """Participante do grupo. `phone` fica `None` quando só há LID."""
+
+    jid: str
+    phone: str | None
+    is_admin: bool
 
 
 class StatusReporter(Protocol):

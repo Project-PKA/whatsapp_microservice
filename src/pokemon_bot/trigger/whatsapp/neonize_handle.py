@@ -16,11 +16,12 @@ from pokemon_bot.participant import Address
 from pokemon_bot.trigger.whatsapp.convert import jid_to_address, to_incoming
 from pokemon_bot.trigger.whatsapp.pacing import (
     MESSAGE_PACING,
+    MODERATION_PACING,
     REACTION_PACING,
     Pacer,
     PacingConfig,
 )
-from pokemon_bot.trigger.whatsapp.ports import SessionEvents
+from pokemon_bot.trigger.whatsapp.ports import GroupMember, SessionEvents
 
 
 class NeonizeHandle:
@@ -33,6 +34,7 @@ class NeonizeHandle:
         client_factory: Callable[..., Any] | None = None,
         message_pacing: PacingConfig = MESSAGE_PACING,
         reaction_pacing: PacingConfig = REACTION_PACING,
+        moderation_pacing: PacingConfig = MODERATION_PACING,
     ) -> None:
         self._session_db = session_db
         self._store_id = store_id
@@ -40,6 +42,7 @@ class NeonizeHandle:
         self._client_factory = client_factory
         self._message_pacer = Pacer(message_pacing)
         self._reaction_pacer = Pacer(reaction_pacing)
+        self._moderation_pacer = Pacer(moderation_pacing)
         self._client: Any = None
 
     # --- conexão ---------------------------------------------------------------------------------
@@ -100,6 +103,30 @@ class NeonizeHandle:
         self._reaction_pacer.wait_turn()
         message = self._client.build_reaction(self._jid(chat), self._jid(sender), message_id, emoji)
         self._client.send_message(self._jid(chat), message)
+
+    # --- moderação (NÃO testada com conta real: docs/moderacao.md) ---
+    def group_participants(self, chat: str) -> list[GroupMember]:
+        info = self._client.get_group_info(self._jid(chat))
+        members = []
+        for p in info.Participants:
+            phone_jid = p.PhoneNumber if getattr(p.PhoneNumber, "User", "") else p.JID
+            phone = phone_jid.User if phone_jid.Server == "s.whatsapp.net" else None
+            members.append(
+                GroupMember(
+                    jid=f"{p.JID.User}@{p.JID.Server}",
+                    phone=phone or None,
+                    is_admin=bool(p.IsAdmin or p.IsSuperAdmin),
+                )
+            )
+        return members
+
+    def remove_participant(self, chat: str, jid: str) -> None:
+        from neonize.utils.enum import ParticipantChange
+
+        self._moderation_pacer.wait_turn()
+        self._client.update_group_participants(
+            self._jid(chat), [self._jid(jid)], ParticipantChange.REMOVE
+        )
 
     # --- identificação ---------------------------------------------------------------------------
     def resolve_lid(self, lid: Address) -> Address | None:

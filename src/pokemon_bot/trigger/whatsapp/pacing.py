@@ -30,6 +30,10 @@ MESSAGE_PACING = PacingConfig(max_per_minute=12, min_gap=1.5, max_gap=4.0)
 REACTION_PACING = PacingConfig(max_per_minute=30, min_gap=0.4, max_gap=1.2)
 
 
+# Remover gente é a ação que mais chama atenção: poucas por minuto e bem espaçadas.
+MODERATION_PACING = PacingConfig(max_per_minute=3, min_gap=8.0, max_gap=20.0)
+
+
 class Pacer:
     """Bloqueia quem envia até a sua vez. Uma instância por loja e por tipo de envio."""
 
