@@ -151,15 +151,15 @@ def test_busca_por_short_code_exato_e_sem_caixa(db: Database, seeder: Seeder) ->
     assert exact.catalog_raw["image"].startswith("https://")
 
 
-def test_busca_ambigua_sem_caixa_devolve_none_mas_exata_funciona(
+def test_busca_nao_diferencia_caixa_porque_o_banco_guarda_em_maiusculas(
     db: Database, seeder: Seeder
 ) -> None:
     store = seeder.store()
-    for code in ("Ab1", "aB1"):
-        seeder.auction(store, seeder.card(store, code))
+    seeder.auction(store, seeder.card(store, "AB1"))
     with db.store_transaction(store) as conn:
-        assert repo.find_auction_by_short_code(conn, store, "AB1") is None
+        assert repo.find_auction_by_short_code(conn, store, "ab1") is not None
         assert repo.find_auction_by_short_code(conn, store, "Ab1") is not None
+        assert repo.find_auction_by_short_code(conn, store, "AB2") is None
 
 
 def test_busca_prefere_o_leilao_em_andamento_ao_encerrado(db: Database, seeder: Seeder) -> None:

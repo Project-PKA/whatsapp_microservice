@@ -12,12 +12,13 @@ from typing import Any
 import psycopg
 import pytest
 
-from pokemon_bot.auction_cycle import AuctionCycle, InMemoryLedger
+from pokemon_bot.auction_cycle import AuctionCycle
 from pokemon_bot.bid_flow import BidProcessor, GroupDirectory
 from pokemon_bot.db import Database
 from pokemon_bot.events import IncomingMessage
 from pokemon_bot.moderation import Moderator
 from pokemon_bot.participant import Address
+from pokemon_bot.template_store import TemplateStore
 from pokemon_bot.trigger.whatsapp.ports import GroupMember
 
 from .conftest import Seed, Seeder
@@ -224,7 +225,7 @@ def test_erro_de_banco_sobe_para_o_handler_blindado(seeder: Seeder, db: Database
 
 
 def _cycle(db: Database, **kwargs: Any) -> AuctionCycle:
-    return AuctionCycle(db, LOG, ledger=InMemoryLedger(), **kwargs)
+    return AuctionCycle(db, LOG, **kwargs)
 
 
 def test_abre_o_leilao_uma_vez_com_a_legenda(db: Database, seeder: Seeder) -> None:
@@ -315,6 +316,83 @@ def test_apos_reinicio_anuncia_o_que_encerrou_dentro_da_janela(
     old_client = FakeClient()
     _cycle(db).tick(old.store_id, GROUP, old_client, NOW)
     assert old_client.texts == []  # fora da janela: não anuncia
+
+
+def test_reinicio_nao_repete_o_anuncio_porque_o_marcador_esta_no_banco(
+    db: Database,
+    processor: BidProcessor,
+    seeder: Seeder,
+    admin: psycopg.Connection[tuple[object, ...]],
+) -> None:
+    seed = _with_group(
+        admin, seeder.full(start=NOW - timedelta(minutes=1), end=NOW + timedelta(minutes=5))
+    )
+    client = FakeClient()
+    _cycle(db).tick(seed.store_id, GROUP, client, NOW)  # primeiro processo: abre
+    assert len(client.texts) == 1
+    opened = admin.execute(
+        "SELECT bot_opened_announced_at, bot_closed_announced_at FROM auctions WHERE id = %s",
+        (seed.auction_id,),
+    ).fetchone()
+    assert opened is not None and opened[0] is not None and opened[1] is None
+
+    restarted, after_restart = _cycle(db), FakeClient()  # outro processo, sem memória
+    restarted.tick(seed.store_id, GROUP, after_restart, NOW + timedelta(seconds=30))
+    assert after_restart.texts == []  # não anuncia a abertura de novo
+
+    restarted.tick(seed.store_id, GROUP, after_restart, NOW + timedelta(hours=1))
+    assert len(after_restart.texts) == 1  # encerra uma vez
+    _cycle(db).tick(seed.store_id, GROUP, after_restart, NOW + timedelta(hours=1, minutes=1))
+    assert len(after_restart.texts) == 1
+    closed = admin.execute(
+        "SELECT bot_closed_announced_at FROM auctions WHERE id = %s", (seed.auction_id,)
+    ).fetchone()
+    assert closed is not None and closed[0] is not None
+
+
+def test_bot_nao_grava_marcador_de_outra_loja(db: Database, seeder: Seeder) -> None:
+    mine = seeder.full(start=NOW - timedelta(minutes=1))
+    other = seeder.full(start=NOW - timedelta(minutes=1))
+    with db.store_transaction(mine.store_id) as conn:
+        from pokemon_bot import repository
+
+        repository.mark_announced(conn, mine.store_id, other.auction_id, "opened")
+    with db.store_transaction(other.store_id) as conn:
+        row = conn.execute(
+            "SELECT bot_opened_announced_at FROM auctions WHERE id = %s", (other.auction_id,)
+        ).fetchone()
+    assert row is not None and row["bot_opened_announced_at"] is None
+
+
+def test_usa_o_texto_da_loja_quando_existe(
+    db: Database, seeder: Seeder, admin: psycopg.Connection[tuple[object, ...]]
+) -> None:
+    seed = seeder.full(start=NOW - timedelta(minutes=1), end=NOW + timedelta(hours=2))
+    admin.execute(
+        "INSERT INTO store_message_templates (store_id, key, body) VALUES (%s, 'card_opened', %s)",
+        (seed.store_id, "Nova carta: {card} (#{short_code})"),
+    )
+    client = FakeClient()
+    templates = TemplateStore(db, LOG, ttl_seconds=0)
+    _cycle(db, templates_for=templates).tick(seed.store_id, GROUP, client, NOW)
+    assert client.texts == [(GROUP, f"Nova carta: Pikachu (#{seed.short_code})")]
+
+
+def test_modelos_ficam_em_cache_e_o_cache_expira(
+    db: Database, seeder: Seeder, admin: psycopg.Connection[tuple[object, ...]]
+) -> None:
+    seed = seeder.full()
+    clock = {"now": 0.0}
+    templates = TemplateStore(db, LOG, ttl_seconds=60, clock=lambda: clock["now"])
+    assert templates(seed.store_id) == {}
+    admin.execute(
+        "INSERT INTO store_message_templates (store_id, key, body) VALUES (%s, 'ended', 'Acabou')",
+        (seed.store_id,),
+    )
+    clock["now"] = 30.0
+    assert templates(seed.store_id) == {}  # ainda no cache
+    clock["now"] = 61.0
+    assert templates(seed.store_id) == {"ended": "Acabou"}
 
 
 def test_leilao_cancelado_nao_e_anunciado(db: Database, seeder: Seeder) -> None:

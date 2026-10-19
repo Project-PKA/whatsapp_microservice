@@ -44,11 +44,12 @@ migrations**: o schema é do Backend.
 
 | Tabela | Operação | Motivo |
 | --- | --- | --- |
-| `stores` | `SELECT (id, name, whatsapp_group_id, whatsapp_status)`, sem contexto de loja; escrita só pela função | Saber quais sessões abrir |
+| `stores` | `SELECT (id, name, whatsapp_group_id, whatsapp_status, inactivity_days_limit)`, sem contexto de loja; escrita só pela função | Saber quais sessões abrir |
+| `store_message_templates` | `SELECT` da loja do contexto | Textos próprios das mensagens do grupo |
 | `whatsapp_sessions` | `SELECT, INSERT, UPDATE, DELETE` da loja do contexto | Só o estado de conexão (D17, opção a: a sessão do neonize fica em Postgres próprio do bot) |
 | `customers` | `SELECT (id, store_id, phone, name, is_visitor, is_blacklisted, last_interaction_at)`; `INSERT (store_id, phone, name)`; `UPDATE (last_interaction_at)` | Achar ou criar o Visitante (ADR 0005); sem CPF, e-mail nem endereço |
 | `cards_inventory` | `SELECT (id, store_id, short_code, tcgdex_id, language, condition, is_foil, custom_photos, notes, status)`; `UPDATE (status, updated_at)` (efeito de `advance_auctions`) | Resolver o `#ID` e montar a legenda |
-| `auctions` | `SELECT`; `UPDATE (status, winning_bid_id, max_value_reached_alert)` (efeito das funções) | Estado, horários, incremento, teto, vencedor |
+| `auctions` | `SELECT`; `UPDATE (status, winning_bid_id, max_value_reached_alert, bot_opened_announced_at, bot_closed_announced_at)` (efeito das funções) | Estado, horários, incremento, teto, vencedor |
 | `bids` | `SELECT, INSERT` | Maior lance e anúncio do vencedor |
 | `tcgdex_catalog` | `SELECT (id, name, card_number, set_name, set_id, raw_data)` | Nome e imagem da carta |
 
@@ -67,14 +68,15 @@ de contrato e exige avisar o dono do Backend.
 
 ### Pendências conhecidas (com o Backend)
 
-- **Marcador de anúncio**: o que já foi anunciado fica em memória. Depois de um reinício, o que
-  abriu ou encerrou nos últimos 15 minutos pode ser anunciado de novo. Pedido: colunas
-  `bot_opened_announced_at` e `bot_closed_announced_at` em `auctions`, com `UPDATE` só nelas.
-
-- **Modelos de mensagem por loja** (ADR 0006, "textos configuráveis"): não existe tabela nem coluna.
-  Enquanto isso valem os padrões de `templates.py`.
-- **`short_code` e caixa**: a restrição aceita `A41` e `a41` como cartas diferentes. O bot tenta a
-  correspondência exata e, se faltar, a sem diferenciar caixa quando for única.
+- **Marcador de anúncio** (resolvido, migration 0023): `auctions.bot_opened_announced_at` e
+  `bot_closed_announced_at`, com `UPDATE` só nelas. O bot grava depois de enviar; reinício não repete.
+- **Modelos de mensagem por loja** (resolvido, migration 0023): tabela `store_message_templates`
+  (o bot só lê). `template_store.TemplateStore` guarda 60 s em cache; sem linha, valem os padrões de
+  `templates.py`. O painel edita pelas rotas `/v1/store/message-templates`.
+- **`short_code` e caixa** (resolvido, migration 0023): o banco exige maiúsculas. O bot busca por
+  `upper(código)`, então `#a41` e `#A41` são a mesma carta.
+- **Inatividade**: o bot já pode ler `stores.inactivity_days_limit` (migration 0023). A remoção por
+  inatividade ainda não está implementada.
 - **Imagem da carta**: arquivos em `STORAGE_DIR/<loja>/<carta>/<uuid>.<ext>` no Backend, montados
   no bot como volume somente leitura (D19).
 - **Telefone**: números brasileiros sem o nono dígito podem não casar com `normalizePhone` do Backend.

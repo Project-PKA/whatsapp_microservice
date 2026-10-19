@@ -5,7 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
-from pokemon_bot.auction_cycle import InMemoryLedger, format_deadline, photo_path
+from pokemon_bot.auction_cycle import format_deadline, photo_path
 from pokemon_bot.bid_flow import GroupDirectory
 from pokemon_bot.repository import AuctionRow
 
@@ -38,14 +38,6 @@ def _auction(photos: list[object]) -> AuctionRow:
 
 def test_prazo_em_horario_de_brasilia() -> None:
     assert format_deadline(datetime(2026, 10, 18, 23, 30, tzinfo=timezone.utc)) == "18/10 às 20:30"
-
-
-def test_ledger_registra_por_tipo() -> None:
-    ledger, a = InMemoryLedger(), uuid4()
-    assert not ledger.has("opened", a)
-    ledger.add("opened", a)
-    assert ledger.has("opened", a) and not ledger.has("closed", a)
-    assert ledger.opened_ids() == [a]
 
 
 def test_foto_sem_volume_ou_sem_arquivo() -> None:
