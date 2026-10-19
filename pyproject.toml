@@ -11,6 +11,7 @@ dependencies = [
   "psycopg==3.3.6",
   "psycopg-binary==3.3.6",
   "psycopg-pool==3.3.3",
+  "neonize==0.5.2",
 ]
 
 [project.optional-dependencies]
@@ -56,3 +57,12 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
+
+# O neonize não publica tipos (sem py.typed): o uso fica isolado em trigger/whatsapp/neonize_handle.py.
+[[tool.mypy.overrides]]
+module = "neonize.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pokemon_bot.trigger.whatsapp.neonize_handle"
+disallow_untyped_decorators = false

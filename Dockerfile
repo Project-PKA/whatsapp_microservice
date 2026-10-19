@@ -8,7 +8,10 @@ RUN pip install --no-cache-dir --only-binary :all: --require-hashes --target /de
 
 FROM python:3.12-slim AS run
 WORKDIR /app
-RUN useradd --system --create-home app
+# libmagic: exigida pelo neonize (python-magic).
+RUN apt-get update && apt-get install -y --no-install-recommends libmagic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home app
 COPY --from=build /deps /deps
 COPY src ./src
 ENV PYTHONPATH=/app/src:/deps PYTHONUNBUFFERED=1

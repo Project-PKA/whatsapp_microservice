@@ -48,7 +48,10 @@ src/pokemon_bot/
   participant.py   # telefone, LID e fallback
   reactions.py     # outcome de place_bid -> reação no grupo
   templates.py     # textos configuráveis por loja
-  trigger/         # tudo que aciona o bot: health, agenda, eventos do WhatsApp
+  db.py, repository.py   # contexto de loja (RLS) e chamadas às funções do banco
+  trigger/         # tudo que aciona o bot
+    health.py      # /health e /ready
+    whatsapp/      # neonize atrás de ports.py: sessão por loja, reconexão, ritmo, QR, status
   config.py, logging_setup.py
 ```
 
@@ -62,7 +65,12 @@ O núcleo não importa neonize nem psycopg.
 - JID sempre sem sufixo de dispositivo (`JIDToNonAD`). Em grupo o remetente pode ser LID: tentar
   `SenderAlt` e `get_pn_from_lid`; se não resolver, registrar o fato (sem o LID) e não dar lance.
 - Nenhuma exceção escapa do callback do whatsmeow: todo handler fica em try/except.
-- Envio com ritmo humano (atrasos e limite por minuto) para reduzir risco de ban.
+- Envio com ritmo humano (atrasos aleatórios e limite por minuto, por loja) para reduzir risco de ban.
+- Uma sessão por loja, com banco de sessão próprio (`SESSION_DB_TEMPLATE`). Só abre sozinha a loja
+  que já tem sessão pareada; QR novo é pedido por `SessionManager.pair`. A sessão do neonize nunca
+  passa pelo banco do Backend (D17, opção a). A API instalada (0.5.2) não tem o parâmetro `database=`
+  que o README cita: usar Postgres para a sessão ainda precisa ser testado com a conta real.
+- `LoggedOut` não reconecta sozinho; queda de rede reconecta com espera de 2 s a 5 min.
 - **Mensagem editada não vira lance** (decisão do agente, reversível): a edição não desfaz um lance
   já registrado e deixaria reescrever o valor depois do fato. Quem quer mudar o lance manda outra
   mensagem. Texto antes ou depois de `#ID valor` também descarta a mensagem.
