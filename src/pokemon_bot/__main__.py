@@ -12,6 +12,8 @@ import threading
 from pathlib import Path
 from uuid import UUID
 
+from pokemon_bot.auction_cycle import AuctionCycle
+from pokemon_bot.bid_flow import BidProcessor, GroupDirectory
 from pokemon_bot.config import Settings, load_settings
 from pokemon_bot.db import Database
 from pokemon_bot.logging_setup import configure_logging
@@ -25,8 +27,11 @@ from pokemon_bot.trigger.whatsapp.status import DbStatusReporter
 SYNC_INTERVAL_SECONDS = 60
 
 
-def build_manager(settings: Settings, db: Database, log: logging.Logger) -> SessionManager:
+def build_manager(
+    settings: Settings, db: Database, groups: GroupDirectory, log: logging.Logger
+) -> SessionManager:
     reporter = DbStatusReporter(db, log)
+    processor = BidProcessor(db, groups, log)
     qr_sink = ConsoleQrSink() if settings.console_qr else None
 
     def session_path(store_id: UUID) -> str:
@@ -41,9 +46,30 @@ def build_manager(settings: Settings, db: Database, log: logging.Logger) -> Sess
             reporter,
             log,
             qr_sink=qr_sink,
+            on_message=processor.handle,
         )
 
     return SessionManager(db, make_session, lambda sid: Path(session_path(sid)).exists(), log)
+
+
+def run_pass(
+    manager: SessionManager, groups: GroupDirectory, cycle: AuctionCycle, log: logging.Logger
+) -> None:
+    """Uma passada por minuto: abre sessões novas e roda o ciclo do leilão de cada loja online."""
+    try:
+        manager.sync()
+    except Exception as error:
+        log.error("falha ao sincronizar lojas", extra={"context": {"error": type(error).__name__}})
+    for store_id, client in manager.online_clients():
+        try:
+            group_id = groups.group_of(store_id)
+            if group_id:
+                cycle.tick(store_id, group_id, client)
+        except Exception as error:
+            log.error(
+                "falha no ciclo do leilão",
+                extra={"context": {"store_id": str(store_id), "error": type(error).__name__}},
+            )
 
 
 def main() -> None:
@@ -55,9 +81,14 @@ def main() -> None:
 
     db: Database | None = None
     manager: SessionManager | None = None
+    groups: GroupDirectory | None = None
+    cycle: AuctionCycle | None = None
     if settings.database_url:
         db = Database(settings.database_url)
-        manager = build_manager(settings, db, log)
+        groups = GroupDirectory(db)
+        manager = build_manager(settings, db, groups, log)
+        storage = Path(settings.storage_dir) if settings.storage_dir else None
+        cycle = AuctionCycle(db, log, storage_dir=storage)
 
     server = start_health_server(
         settings.health_port, is_ready=lambda: manager is not None and manager.synced
@@ -65,14 +96,8 @@ def main() -> None:
     log.info("worker iniciado", extra={"context": {"health_port": settings.health_port}})
     try:
         while not stop.is_set():
-            if manager is not None:
-                try:
-                    manager.sync()
-                except Exception as error:
-                    log.error(
-                        "falha ao sincronizar lojas",
-                        extra={"context": {"error": type(error).__name__}},
-                    )
+            if manager is not None and groups is not None and cycle is not None:
+                run_pass(manager, groups, cycle, log)
             stop.wait(SYNC_INTERVAL_SECONDS)
     finally:
         if manager is not None:

@@ -18,6 +18,9 @@ class IncomingMessage:
     sender: Address | None = None
     sender_alt: Address | None = None
     display_name: str | None = None
+    # JID do grupo (`id@g.us`) e do remetente como veio, para responder e reagir à mensagem.
+    chat: str | None = None
+    sender_jid: str | None = None
 
 
 def bid_from_message(message: IncomingMessage) -> ParsedBid | None:

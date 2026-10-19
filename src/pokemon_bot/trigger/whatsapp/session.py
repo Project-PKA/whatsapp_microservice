@@ -63,6 +63,7 @@ class StoreSession:
         self._sleep = sleep
         self._stop = threading.Event()
         self._logged_out = False
+        self._online = False
         self._handle: ClientHandle | None = None
         self._thread: threading.Thread | None = None
         # Cada callback é blindado: nenhuma exceção chega ao whatsmeow.
@@ -90,6 +91,10 @@ class StoreSession:
         return self._thread is not None and self._thread.is_alive()
 
     @property
+    def online(self) -> bool:
+        return self._online and self._handle is not None
+
+    @property
     def handle(self) -> ClientHandle | None:
         return self._handle
 
@@ -108,6 +113,7 @@ class StoreSession:
                 )
             if self._stop.is_set() or self._logged_out:
                 break
+            self._online = False
             self._safe_report("OFFLINE")
             self._sleep(self._backoff.next())
         self._handle = None
@@ -122,15 +128,18 @@ class StoreSession:
             self._qr_sink.publish(self.store_id, data)
 
     def _on_connected(self) -> None:
+        self._online = True
         self._backoff.reset()
         self._safe_report("ONLINE")
 
     def _on_disconnected(self) -> None:
+        self._online = False
         self._safe_report("OFFLINE")
 
     def _on_logged_out(self) -> None:
         # O WhatsApp desvinculou o aparelho: reconectar sozinho só geraria pedidos inválidos.
         self._logged_out = True
+        self._online = False
         self._safe_report("OFFLINE")
 
     def _on_message_event(self, message: IncomingMessage) -> None:

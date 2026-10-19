@@ -16,6 +16,7 @@ class Settings:
     database_url: str | None
     session_db_template: str
     console_qr: bool
+    storage_dir: str | None
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -28,5 +29,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         health_port=int(e.get("HEALTH_PORT", "8080")),
         database_url=e.get("DATABASE_URL") or None,
         session_db_template=e.get("SESSION_DB_TEMPLATE", "sessions/{store_id}.sqlite3"),
+        storage_dir=e.get("STORAGE_DIR") or None,
         console_qr=e.get("CONSOLE_QR", "").lower() in ("1", "true", "yes"),
     )

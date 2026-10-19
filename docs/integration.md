@@ -55,7 +55,21 @@ migrations**: o schema é do Backend.
 Esta lista deve acompanhar [`ARCHITECTURE.md`](../ARCHITECTURE.md). Mudar uma linha dela é mudança
 de contrato e exige avisar o dono do Backend.
 
+### Ciclo do leilão no grupo
+
+- **Lance:** `bid_flow.BidProcessor` lê `#ID valor` só do grupo da loja (`stores.whatsapp_group_id`),
+  acha o leilão pelo `short_code`, cria o Visitante e chama `place_bid`. Responde por reação (✅) ou
+  texto; blacklist e `#ID` inexistente ficam em silêncio.
+- **Abrir e encerrar:** `auction_cycle.AuctionCycle`, a cada minuto por loja online: chama
+  `advance_auctions`, posta a carta (foto do volume `STORAGE_DIR` se houver, senão só o texto) e,
+  ao encerrar, marca o vencedor com `@telefone` ou avisa que não houve lance.
+- **Fuso:** os horários saem em Brasília (UTC-3, sem horário de verão).
+
 ### Pendências conhecidas (com o Backend)
+
+- **Marcador de anúncio**: o que já foi anunciado fica em memória. Depois de um reinício, o que
+  abriu ou encerrou nos últimos 15 minutos pode ser anunciado de novo. Pedido: colunas
+  `bot_opened_announced_at` e `bot_closed_announced_at` em `auctions`, com `UPDATE` só nelas.
 
 - **Modelos de mensagem por loja** (ADR 0006, "textos configuráveis"): não existe tabela nem coluna.
   Enquanto isso valem os padrões de `templates.py`.
