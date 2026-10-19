@@ -47,3 +47,6 @@ coverage.xml
 *.sqlite
 *.sqlite3
 *.db
+
+# Migrations do Backend baixadas pelo CI
+backend-src/

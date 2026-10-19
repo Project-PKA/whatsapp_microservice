@@ -11,4 +11,5 @@
 | Log: `logging` da biblioteca padrão, formatador JSON próprio | structlog | Sem dependência; o formato é simples |
 | Health: `http.server` | FastAPI | Dois endpoints; não justifica framework |
 
-Dependências de runtime hoje: **nenhuma**. Entram com aprovação do dono, uma fase por vez.
+Dependências de runtime hoje: psycopg 3, psycopg-binary e psycopg-pool (LGPL-3.0), aprovadas pelo
+dono. testcontainers (Apache-2.0) só nos testes. Entram com aprovação do dono, uma fase por vez.

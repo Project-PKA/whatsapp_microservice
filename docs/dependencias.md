@@ -17,13 +17,7 @@ make lock
 O `pip lock` ainda é experimental e trava só a plataforma em que roda; por isso o `make lock` usa um
 contêiner Linux. No Windows, instale por `pip install -e ".[dev]"` (versões exatas do `pyproject.toml`).
 
-## Regenerar o `requirements.txt`
+## `requirements.txt`
 
-Resolva as dependências de runtime para Linux, baixe os wheels e calcule os hashes:
-
-```bash
-pip download --only-binary :all: --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64   --python-version 3.12 --implementation cp -d /tmp/wheels <dependências de runtime do pyproject>
-pip hash /tmp/wheels/*.whl
-```
-
-Escreva uma linha `pacote==versão --hash=sha256:...` por wheel. Hoje não há dependência de runtime.
+Só as dependências de runtime, com versão e hash (`--require-hashes`). O `make lock` também o
+regenera a partir do `pyproject.toml` (`scripts/pylock_to_requirements.py`). Não edite à mão.

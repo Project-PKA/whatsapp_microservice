@@ -13,6 +13,7 @@ class Settings:
     environment: str
     log_level: str
     health_port: int
+    database_url: str | None
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -23,4 +24,5 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         environment=e.get("ENVIRONMENT", "development"),
         log_level=e.get("LOG_LEVEL", "info").lower(),
         health_port=int(e.get("HEALTH_PORT", "8080")),
+        database_url=e.get("DATABASE_URL") or None,
     )

@@ -21,6 +21,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Os testes de integração aplicam as migrations do Backend (repositório público).
+      - uses: actions/checkout@v4
+        with:
+          repository: Project-PKA/Backend
+          ref: main
+          path: backend-src
+          sparse-checkout: migrations
       - uses: actions/setup-python@v5
         if: env.SONAR_TOKEN != ''
         with:
@@ -30,6 +37,8 @@ jobs:
 
       - name: Testes com cobertura
         if: env.SONAR_TOKEN != ''
+        env:
+          BACKEND_MIGRATIONS_DIR: ${{ github.workspace }}/backend-src/migrations
         run: |
           make setup
           make test
