@@ -63,3 +63,9 @@ O núcleo não importa neonize nem psycopg.
   `SenderAlt` e `get_pn_from_lid`; se não resolver, registrar o fato (sem o LID) e não dar lance.
 - Nenhuma exceção escapa do callback do whatsmeow: todo handler fica em try/except.
 - Envio com ritmo humano (atrasos e limite por minuto) para reduzir risco de ban.
+- **Mensagem editada não vira lance** (decisão do agente, reversível): a edição não desfaz um lance
+  já registrado e deixaria reescrever o valor depois do fato. Quem quer mudar o lance manda outra
+  mensagem. Texto antes ou depois de `#ID valor` também descarta a mensagem.
+- **Telefone**: o bot usa o número do WhatsApp como veio (só dígitos, com país). Números brasileiros
+  antigos sem o nono dígito podem divergir do cadastro do Backend (`normalizePhone`): risco a validar
+  com conta real.
