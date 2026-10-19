@@ -1,40 +1,35 @@
 # Estratégia de testes
 
-> Esqueleto a ser preenchido na entrevista do [`BOOTSTRAP.md`](BOOTSTRAP.md).
+O valor está em validar o **contrato**: o parser de lance (Backend e bot dependem dele), a leitura
+do participante e o tratamento de cada `outcome` de `place_bid`.
 
-Este serviço não tem camada de apresentação, então o foco de testes é
-diferente de um serviço backend tradicional: o valor está em validar o
-**contrato de comunicação** (ver [`docs/integration.md`](docs/integration.md))
-e o comportamento diante de dependências externas (fila, banco, API).
+## Unitários (sem WhatsApp, sem banco)
 
-## Testes unitários
+`tests/`. Eventos simulados. O parser tem testes por exemplo e por propriedade (hypothesis):
+vírgula e ponto, `R$`, espaços, maiúsculas, lixo, mensagem editada.
 
-**TODO(bootstrap):** o que é testado isoladamente (regras de negócio,
-transformação de dados), sem dependências externas reais.
+## Integração (fase 2)
 
-## Testes de integração
+Postgres real em contêiner efêmero (testcontainers), com as migrations do Backend aplicadas, usando
+um papel **sem `BYPASSRLS`** (nunca o superusuário, que ignora o RLS). Marcados com
+`@pytest.mark.integration`. Cobrem: contexto `app.store_id` por transação, acesso cruzado entre
+lojas negado e `place_bid` com cada `outcome`. Os contêineres criados nos testes são removidos.
 
-O ponto central deste documento. **TODO(bootstrap):** para cada
-dependência externa deste serviço, descrever como ela é testada:
+## WhatsApp (fase 3 em diante)
 
-- **Fila/evento** — TODO: consumidor real contra um broker local
-  (container docker-compose) ou fake/in-memory? Como simular
-  mensagem malformada, reentrega, dead-letter?
-- **Banco (próprio ou compartilhado)** — TODO: banco real em container
-  efêmero, migração aplicada antes da suíte rodar?
-- **API externa** — TODO: mock de contrato (ex: WireMock, Pact) ou
-  gravação/replay de requisições reais?
+Camada neonize atrás de uma interface própria; os testes usam um cliente falso. Conexão real só em
+teste manual com a conta de teste (OWNER.md, A9), nunca no CI.
 
 ## Como rodar
 
 ```bash
-make test
+make validate   # lint + tipos + testes com cobertura
 ```
 
-**TODO(bootstrap):** pré-requisitos (containers, variáveis de ambiente)
-para rodar a suíte de integração localmente e no CI.
+Pré-requisitos: Python >= 3.10 e `make setup`. No Windows, instale o make
+(`winget install ezwinports.make`) ou rode os comandos do `Makefile` à mão.
 
 ## Cobertura
 
-**TODO(bootstrap):** meta de cobertura, se houver, e como ela é
-reportada (ver `.github/workflows/ci.yml` e `.github/workflows/code-quality.yml`).
+Relatório em `coverage.xml` (lido pelo SonarCloud). Meta: o núcleo (`parser`, `participant`,
+`reactions`, `templates`) perto de 100%; a camada de gatilho coberta pelos testes de integração.

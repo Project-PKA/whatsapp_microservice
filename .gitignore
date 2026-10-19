@@ -30,3 +30,20 @@ Thumbs.db
 
 # Logs locais
 *.log
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+.hypothesis/
+
+# Sessão do WhatsApp (credencial, ADR 0012): nunca no git
+*.sqlite
+*.sqlite3
+*.db

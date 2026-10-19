@@ -1,39 +1,18 @@
-# Esqueleto de imagem enxuta, multi-stage. Preencher na entrevista do
-# BOOTSTRAP.md de acordo com a stack escolhida. O objetivo é manter a
-# imagem final a menor possível (sem toolchain de build, sem
-# dependências de dev) e rodando como usuário não-root.
-
-# ---- Estágio de build -------------------------------------------------
-# TODO(bootstrap): trocar pela imagem base da stack escolhida
-# (ex: golang:1.23-alpine, node:22-alpine, python:3.13-slim).
-FROM TODO-base-image AS build
-
+# Imagem enxuta, multi-stage, usuário não-root.
+# Dependências: só wheels, com versão e hash travados em requirements.txt (nada de setup.py de
+# terceiros rodando no build). O código do bot entra por PYTHONPATH, sem instalar o pacote.
+FROM python:3.12-slim AS build
 WORKDIR /app
-COPY . .
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes --target /deps -r requirements.txt
 
-# TODO(bootstrap): comando de install de dependências da stack
-RUN echo "TODO(bootstrap): install de dependencias" && exit 1
-
-# TODO(bootstrap): comando de build/compilação da stack
-RUN echo "TODO(bootstrap): build" && exit 1
-
-# ---- Estágio final -----------------------------------------------------
-# TODO(bootstrap): trocar pela menor imagem runtime possível
-# (ex: gcr.io/distroless/static, alpine, scratch para binários estáticos).
-FROM TODO-runtime-image AS run
-
+FROM python:3.12-slim AS run
 WORKDIR /app
-
-# Roda como usuário não-root.
-# TODO(bootstrap): ajustar se a imagem base já tiver um usuário próprio.
-RUN addgroup -S app && adduser -S app -G app
+RUN useradd --system --create-home app
+COPY --from=build /deps /deps
+COPY src ./src
+ENV PYTHONPATH=/app/src:/deps PYTHONUNBUFFERED=1
 USER app
-
-COPY --from=build /app/TODO-artefato-de-build ./
-
-# Porta usada pelo health check auxiliar (ver docs/observability.md).
-# TODO(bootstrap): confirmar/ajustar a porta.
+# Porta do health check (docs/observability.md).
 EXPOSE 8080
-
-# TODO(bootstrap): comando real de start do serviço.
-ENTRYPOINT ["echo", "TODO(bootstrap): comando de start"]
+ENTRYPOINT ["python", "-m", "pokemon_bot"]

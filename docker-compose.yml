@@ -1,31 +1,14 @@
-# Este arquivo é um EXEMPLO isolado: ele existe para que você rode o
-# serviço sozinho durante o desenvolvimento (`docker compose up`), mas
-# a entrada do serviço abaixo foi escrita para ser copiada e colada no
-# docker-compose.yml RAIZ de um projeto real, ao lado dos outros
-# serviços do sistema.
-#
-# TODO(bootstrap): renomear o serviço, ajustar build/imagem, portas,
-# variáveis de ambiente e dependências (banco, fila) reais.
-
+# Só para rodar o bot isolado em desenvolvimento. O ambiente completo (Backend, banco, frontend)
+# está em ../shared (docker compose up -d --build).
 services:
-  # --- Copiar a partir daqui -------------------------------------------
-  service-name: # TODO(bootstrap): nome real do serviço
+  whatsapp-microservice:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
     environment:
-      SERVICE_NAME: service-name # TODO(bootstrap)
+      SERVICE_NAME: whatsapp-microservice
       ENVIRONMENT: development
     ports:
-      # Porta do health check / endpoint auxiliar (ver docs/observability.md).
-      # Remover se o gatilho não expuser nenhuma porta (ex: worker puro de fila/cron).
-      - "8080:8080"
-    # TODO(bootstrap): se houver banco compartilhado ou fila local para
-    # desenvolvimento, declarar aqui como `depends_on` e usar os serviços
-    # já existentes no docker-compose.yml raiz do projeto em vez de
-    # duplicá-los.
-    # depends_on:
-    #   - TODO-fila-ou-banco
-  # --- Copiar até aqui --------------------------------------------------
+      - "127.0.0.1:8080:8080"
