@@ -8,11 +8,14 @@ name: Code Quality
 # sonar-project.properties (ou nos parâmetros abaixo) e, se a stack
 # gerar relatório de cobertura, apontar sonar.*.coverage.reportPaths.
 
+# SonarCloud DESLIGADO por enquanto (o dono quer testar tudo antes): so roda manualmente.
+# Para religar, restaure os gatilhos pull_request e push em main.
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_dispatch:
+  # pull_request:
+  #   branches: [main]
+  # push:
+  #   branches: [main]
 
 jobs:
   # Enquanto o repositório for o modelo (ainda há TODO(bootstrap) em sonar-project.properties), os passos que dependem
